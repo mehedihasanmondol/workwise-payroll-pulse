@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +40,8 @@ export const EmployeeManagement = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setEmployees(data || []);
+      // Type cast the data to ensure proper typing
+      setEmployees((data || []) as Employee[]);
     } catch (error) {
       console.error('Error fetching employees:', error);
       toast({

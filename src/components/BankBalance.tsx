@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,8 @@ export const BankBalance = () => {
         .order('date', { ascending: false });
 
       if (error) throw error;
-      setTransactions(data || []);
+      // Type cast the data to ensure proper typing
+      setTransactions((data || []) as BankTransaction[]);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast({

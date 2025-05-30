@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,7 +41,8 @@ export const ClientManagement = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setClients(data || []);
+      // Type cast the data to ensure proper typing
+      setClients((data || []) as Client[]);
     } catch (error) {
       console.error('Error fetching clients:', error);
       toast({

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +52,8 @@ export const WorkingHours = () => {
         .order('date', { ascending: false });
 
       if (error) throw error;
-      setWorkingHours(data || []);
+      // Type cast the data to ensure proper typing
+      setWorkingHours((data || []) as WorkingHour[]);
     } catch (error) {
       console.error('Error fetching working hours:', error);
       toast({
@@ -75,7 +75,8 @@ export const WorkingHours = () => {
         .order('name');
 
       if (error) throw error;
-      setEmployees(data || []);
+      // Type cast the data to ensure proper typing
+      setEmployees((data || []) as Employee[]);
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
@@ -90,7 +91,8 @@ export const WorkingHours = () => {
         .order('company');
 
       if (error) throw error;
-      setClients(data || []);
+      // Type cast the data to ensure proper typing
+      setClients((data || []) as Client[]);
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
@@ -105,7 +107,8 @@ export const WorkingHours = () => {
         .order('name');
 
       if (error) throw error;
-      setProjects(data || []);
+      // Type cast the data to ensure proper typing
+      setProjects((data || []) as Project[]);
     } catch (error) {
       console.error('Error fetching projects:', error);
     }
