@@ -1,52 +1,150 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Edit, Trash2, Building2 } from "lucide-react";
-
-interface Client {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  status: "active" | "inactive";
-  projectCount: number;
-}
+import { supabase } from "@/integrations/supabase/client";
+import { Client } from "@/types/database";
+import { useToast } from "@/hooks/use-toast";
 
 export const ClientManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [clients] = useState<Client[]>([
-    {
-      id: 1,
-      name: "ABC Corporation",
-      email: "contact@abc-corp.com",
-      phone: "(555) 111-2222",
-      company: "ABC Corp",
-      status: "active",
-      projectCount: 3
-    },
-    {
-      id: 2,
-      name: "XYZ Industries",
-      email: "info@xyz-industries.com",
-      phone: "(555) 333-4444",
-      company: "XYZ Industries",
-      status: "active",
-      projectCount: 2
-    },
-    {
-      id: 3,
-      name: "TechStart Inc",
-      email: "hello@techstart.com",
-      phone: "(555) 555-6666",
-      company: "TechStart Inc",
-      status: "inactive",
-      projectCount: 1
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [projectCounts, setProjectCounts] = useState<Record<string, number>>({});
+  const { toast } = useToast();
+
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    company: "",
+    status: "active" as "active" | "inactive"
+  });
+
+  useEffect(() => {
+    fetchClients();
+    fetchProjectCounts();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch clients",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  const fetchProjectCounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('client_id');
+
+      if (error) throw error;
+      
+      const counts: Record<string, number> = {};
+      data?.forEach(project => {
+        counts[project.client_id] = (counts[project.client_id] || 0) + 1;
+      });
+      setProjectCounts(counts);
+    } catch (error) {
+      console.error('Error fetching project counts:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (editingClient) {
+        const { error } = await supabase
+          .from('clients')
+          .update(formData)
+          .eq('id', editingClient.id);
+
+        if (error) throw error;
+        toast({ title: "Success", description: "Client updated successfully" });
+      } else {
+        const { error } = await supabase
+          .from('clients')
+          .insert([formData]);
+
+        if (error) throw error;
+        toast({ title: "Success", description: "Client added successfully" });
+      }
+
+      setIsDialogOpen(false);
+      setEditingClient(null);
+      setFormData({ name: "", email: "", phone: "", company: "", status: "active" });
+      fetchClients();
+    } catch (error) {
+      console.error('Error saving client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save client",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (client: Client) => {
+    setEditingClient(client);
+    setFormData({
+      name: client.name,
+      email: client.email,
+      phone: client.phone || "",
+      company: client.company,
+      status: client.status
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this client? This will also delete all associated projects.")) return;
+
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast({ title: "Success", description: "Client deleted successfully" });
+      fetchClients();
+      fetchProjectCounts();
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete client",
+        variant: "destructive"
+      });
+    }
+  };
 
   const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -54,14 +152,85 @@ export const ClientManagement = () => {
     client.company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalProjects = Object.values(projectCounts).reduce((sum, count) => sum + count, 0);
+
+  if (loading && clients.length === 0) {
+    return <div className="flex justify-center items-center h-64">Loading...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Client Management</h1>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add Client
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2" onClick={() => {
+              setEditingClient(null);
+              setFormData({ name: "", email: "", phone: "", company: "", status: "active" });
+            }}>
+              <Plus className="h-4 w-4" />
+              Add Client
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingClient ? "Edit Client" : "Add New Client"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="company">Company Name</Label>
+                <Input
+                  id="company"
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="name">Contact Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select value={formData.status} onValueChange={(value: "active" | "inactive") => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : editingClient ? "Update Client" : "Add Client"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -93,9 +262,7 @@ export const ClientManagement = () => {
             <Building2 className="h-5 w-5 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {clients.reduce((sum, client) => sum + client.projectCount, 0)}
-            </div>
+            <div className="text-2xl font-bold text-gray-900">{totalProjects}</div>
           </CardContent>
         </Card>
       </div>
@@ -135,8 +302,8 @@ export const ClientManagement = () => {
                     <td className="py-3 px-4 font-medium text-gray-900">{client.company}</td>
                     <td className="py-3 px-4 text-gray-600">{client.name}</td>
                     <td className="py-3 px-4 text-gray-600">{client.email}</td>
-                    <td className="py-3 px-4 text-gray-600">{client.phone}</td>
-                    <td className="py-3 px-4 text-gray-600">{client.projectCount}</td>
+                    <td className="py-3 px-4 text-gray-600">{client.phone || '-'}</td>
+                    <td className="py-3 px-4 text-gray-600">{projectCounts[client.id] || 0}</td>
                     <td className="py-3 px-4">
                       <Badge variant={client.status === "active" ? "default" : "secondary"}>
                         {client.status}
@@ -144,10 +311,10 @@ export const ClientManagement = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(client)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(client.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
