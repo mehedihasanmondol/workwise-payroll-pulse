@@ -1,12 +1,46 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from "react";
+import { Sidebar } from "@/components/Sidebar";
+import { Dashboard } from "@/components/Dashboard";
+import { EmployeeManagement } from "@/components/EmployeeManagement";
+import { ClientManagement } from "@/components/ClientManagement";
+import { ProjectManagement } from "@/components/ProjectManagement";
+import { WorkingHours } from "@/components/WorkingHours";
+import { Reports } from "@/components/Reports";
+import { BankBalance } from "@/components/BankBalance";
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "dashboard":
+        return <Dashboard />;
+      case "employees":
+        return <EmployeeManagement />;
+      case "clients":
+        return <ClientManagement />;
+      case "projects":
+        return <ProjectManagement />;
+      case "hours":
+        return <WorkingHours />;
+      case "reports":
+        return <Reports />;
+      case "bank":
+        return <BankBalance />;
+      default:
+        return <Dashboard />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <main className="flex-1 ml-64 p-8">
+        <div className="max-w-7xl mx-auto">
+          {renderContent()}
+        </div>
+      </main>
     </div>
   );
 };
