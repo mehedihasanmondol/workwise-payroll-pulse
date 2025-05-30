@@ -62,4 +62,10 @@ export interface BankTransaction {
   date: string;
   created_at: string;
   updated_at: string;
+  client_id?: string;
+  project_id?: string;
+  employee_id?: string;
+  clients?: Client;
+  projects?: Project;
+  employees?: Employee;
 }

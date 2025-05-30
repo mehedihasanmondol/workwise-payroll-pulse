@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,12 +42,7 @@ export const BankBalance = () => {
     try {
       const { data, error } = await supabase
         .from('bank_transactions')
-        .select(`
-          *,
-          clients (id, company),
-          projects (id, name),
-          employees (id, name)
-        `)
+        .select('*')
         .order('date', { ascending: false });
 
       if (error) throw error;
@@ -74,7 +68,7 @@ export const BankBalance = () => {
         .order('company');
 
       if (error) throw error;
-      setClients((data || []) as Client[]);
+      setClients((data || []) as Client[];
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
@@ -89,7 +83,7 @@ export const BankBalance = () => {
         .order('name');
 
       if (error) throw error;
-      setProjects((data || []) as Project[]);
+      setProjects((data || []) as Project[];
     } catch (error) {
       console.error('Error fetching projects:', error);
     }
@@ -104,7 +98,7 @@ export const BankBalance = () => {
         .order('name');
 
       if (error) throw error;
-      setEmployees((data || []) as Employee[]);
+      setEmployees((data || []) as Employee[];
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
@@ -165,6 +159,21 @@ export const BankBalance = () => {
       employee_id: ""
     });
     setIsDialogOpen(true);
+  };
+
+  const getClientName = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId);
+    return client?.company || "-";
+  };
+
+  const getProjectName = (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    return project?.name || "-";
+  };
+
+  const getEmployeeName = (employeeId: string) => {
+    const employee = employees.find(e => e.id === employeeId);
+    return employee?.name || "-";
   };
 
   const totalDeposits = transactions
@@ -379,9 +388,9 @@ export const BankBalance = () => {
                     <td className="py-3 px-4 text-gray-600">{transaction.date}</td>
                     <td className="py-3 px-4 font-medium text-gray-900">{transaction.description}</td>
                     <td className="py-3 px-4 text-gray-600">{transaction.category}</td>
-                    <td className="py-3 px-4 text-gray-600">{transaction.clients?.company || "-"}</td>
-                    <td className="py-3 px-4 text-gray-600">{transaction.projects?.name || "-"}</td>
-                    <td className="py-3 px-4 text-gray-600">{transaction.employees?.name || "-"}</td>
+                    <td className="py-3 px-4 text-gray-600">{getClientName(transaction.client_id || "")}</td>
+                    <td className="py-3 px-4 text-gray-600">{getProjectName(transaction.project_id || "")}</td>
+                    <td className="py-3 px-4 text-gray-600">{getEmployeeName(transaction.employee_id || "")}</td>
                     <td className="py-3 px-4">
                       <Badge 
                         variant={transaction.type === "deposit" ? "default" : "secondary"}

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,8 +62,25 @@ export const Payroll = () => {
         .eq('status', 'approved');
 
       if (error) throw error;
-      setWorkingHours((data || []) as WorkingHour[]);
-      calculatePayroll(data || [], employees);
+      
+      // Type the data properly
+      const typedWorkingHours: WorkingHour[] = (data || []).map(item => ({
+        id: item.id,
+        employee_id: item.employee_id,
+        client_id: item.client_id,
+        project_id: item.project_id,
+        date: item.date,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        total_hours: item.total_hours,
+        status: item.status as 'pending' | 'approved' | 'rejected',
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        employees: item.employees
+      }));
+      
+      setWorkingHours(typedWorkingHours);
+      calculatePayroll(typedWorkingHours, employees);
     } catch (error) {
       console.error('Error fetching working hours:', error);
     } finally {

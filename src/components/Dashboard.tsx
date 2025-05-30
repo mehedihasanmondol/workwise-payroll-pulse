@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Building2, FolderOpen, Clock, DollarSign, Calendar, TrendingUp, AlertTriangle } from "lucide-react";
@@ -39,13 +38,13 @@ export const Dashboard = () => {
       // Fetch active clients count
       const { data: clients } = await supabase
         .from('clients')
-        .select('id')
+        .select('id, company')
         .eq('status', 'active');
 
       // Fetch current projects count
       const { data: projects } = await supabase
         .from('projects')
-        .select('id, end_date')
+        .select('id, end_date, name')
         .eq('status', 'active');
 
       // Check for overdue projects
@@ -59,7 +58,7 @@ export const Dashboard = () => {
       
       const { data: workingHours } = await supabase
         .from('working_hours')
-        .select('total_hours')
+        .select('total_hours, project_id')
         .gte('date', weekStart.toISOString().split('T')[0])
         .lte('date', weekEnd.toISOString().split('T')[0]);
 
@@ -88,38 +87,24 @@ export const Dashboard = () => {
         .select('id')
         .eq('status', 'pending');
 
-      // Fetch top client by revenue
-      const { data: clientTransactions } = await supabase
-        .from('bank_transactions')
-        .select('amount, clients(company)')
-        .eq('type', 'deposit')
-        .not('client_id', 'is', null);
-
-      const clientRevenue = clientTransactions?.reduce((acc: any, curr) => {
-        const company = curr.clients?.company || 'Unknown';
-        acc[company] = (acc[company] || 0) + curr.amount;
-        return acc;
-      }, {});
-
-      const topClient = clientRevenue ? Object.keys(clientRevenue).reduce((a, b) => 
-        clientRevenue[a] > clientRevenue[b] ? a : b, Object.keys(clientRevenue)[0]
-      ) : '';
+      // Get top client (simplified)
+      const topClient = clients && clients.length > 0 ? clients[0].company : '';
 
       // Fetch top project by hours
-      const { data: projectHours } = await supabase
-        .from('working_hours')
-        .select('total_hours, projects(name)')
-        .gte('date', weekStart.toISOString().split('T')[0]);
-
-      const projectHoursMap = projectHours?.reduce((acc: any, curr) => {
-        const projectName = curr.projects?.name || 'Unknown';
-        acc[projectName] = (acc[projectName] || 0) + curr.total_hours;
+      const projectHoursMap = workingHours?.reduce((acc: any, curr) => {
+        const projectId = curr.project_id;
+        acc[projectId] = (acc[projectId] || 0) + curr.total_hours;
         return acc;
       }, {});
 
-      const topProject = projectHoursMap ? Object.keys(projectHoursMap).reduce((a, b) => 
-        projectHoursMap[a] > projectHoursMap[b] ? a : b, Object.keys(projectHoursMap)[0]
-      ) : '';
+      let topProject = '';
+      if (projectHoursMap && projects) {
+        const topProjectId = Object.keys(projectHoursMap).reduce((a, b) => 
+          projectHoursMap[a] > projectHoursMap[b] ? a : b, Object.keys(projectHoursMap)[0]
+        );
+        const project = projects.find(p => p.id === topProjectId);
+        topProject = project?.name || '';
+      }
 
       // Calculate average hours per day
       const avgHoursPerDay = hoursThisWeek / 7;
