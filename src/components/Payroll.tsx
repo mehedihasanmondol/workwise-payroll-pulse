@@ -19,9 +19,28 @@ interface PayrollEntry {
   period_end: string;
 }
 
+interface WorkingHourWithEmployee {
+  id: string;
+  employee_id: string;
+  client_id: string;
+  project_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  total_hours: number;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  updated_at: string;
+  employees: {
+    id: string;
+    name: string;
+    hourly_rate: number;
+  };
+}
+
 export const Payroll = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
+  const [workingHours, setWorkingHours] = useState<WorkingHourWithEmployee[]>([]);
   const [payrollEntries, setPayrollEntries] = useState<PayrollEntry[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState("current-week");
   const [loading, setLoading] = useState(true);
@@ -63,8 +82,7 @@ export const Payroll = () => {
 
       if (error) throw error;
       
-      // Type the data properly
-      const typedWorkingHours: WorkingHour[] = (data || []).map(item => ({
+      const typedWorkingHours: WorkingHourWithEmployee[] = (data || []).map(item => ({
         id: item.id,
         employee_id: item.employee_id,
         client_id: item.client_id,
@@ -119,7 +137,7 @@ export const Payroll = () => {
     };
   };
 
-  const calculatePayroll = (hours: WorkingHour[], employeeList: Employee[]) => {
+  const calculatePayroll = (hours: WorkingHourWithEmployee[], employeeList: Employee[]) => {
     const payrollMap = new Map<string, PayrollEntry>();
     const dateRange = getDateRange();
 
