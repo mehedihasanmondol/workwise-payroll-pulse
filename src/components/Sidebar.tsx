@@ -10,6 +10,8 @@ import {
   Calendar,
   FileText, 
   Wallet,
+  Bell,
+  DollarSign,
   ChevronDown,
   Menu
 } from "lucide-react";
@@ -29,6 +31,8 @@ export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
     { id: "projects", label: "Projects", icon: FolderOpen },
     { id: "hours", label: "Working Hours", icon: Clock },
     { id: "roster", label: "Roster", icon: Calendar },
+    { id: "payroll", label: "Payroll", icon: DollarSign },
+    { id: "notifications", label: "Notifications", icon: Bell },
     { id: "reports", label: "Reports", icon: FileText },
     { id: "bank", label: "Bank Balance", icon: Wallet },
   ];
