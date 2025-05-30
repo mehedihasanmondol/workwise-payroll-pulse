@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
@@ -6,8 +7,11 @@ import {
   Building2, 
   FolderOpen, 
   Clock, 
+  Calendar,
   FileText, 
-  Wallet 
+  Wallet,
+  ChevronDown,
+  Menu
 } from "lucide-react";
 
 interface SidebarProps {
@@ -15,43 +19,64 @@ interface SidebarProps {
   setActiveTab: (tab: string) => void;
 }
 
-const menuItems = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "employees", label: "Employees", icon: Users },
-  { id: "clients", label: "Clients", icon: Building2 },
-  { id: "projects", label: "Projects", icon: FolderOpen },
-  { id: "hours", label: "Working Hours", icon: Clock },
-  { id: "reports", label: "Reports", icon: FileText },
-  { id: "bank", label: "Bank Balance", icon: Wallet },
-];
-
 export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const menuItems = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "employees", label: "Employees", icon: Users },
+    { id: "clients", label: "Clients", icon: Building2 },
+    { id: "projects", label: "Projects", icon: FolderOpen },
+    { id: "hours", label: "Working Hours", icon: Clock },
+    { id: "roster", label: "Roster", icon: Calendar },
+    { id: "reports", label: "Reports", icon: FileText },
+    { id: "bank", label: "Bank Balance", icon: Wallet },
+  ];
+
   return (
-    <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 shadow-sm">
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-900">Schedule & Payroll</h1>
-        <p className="text-sm text-gray-600">Manager</p>
+    <div className={cn(
+      "fixed left-0 top-0 h-full bg-white border-r border-gray-200 transition-all duration-300 z-50",
+      isCollapsed ? "w-16" : "w-64"
+    )}>
+      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        {!isCollapsed && (
+          <h2 className="text-xl font-bold text-gray-900">
+            Schedule & Payroll
+          </h2>
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-2 rounded-md hover:bg-gray-100"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
       </div>
       
-      <nav className="mt-6">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={cn(
-                "w-full flex items-center px-6 py-3 text-left text-sm font-medium transition-colors",
-                activeTab === item.id
-                  ? "bg-blue-50 text-blue-700 border-r-2 border-blue-700"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-              )}
-            >
-              <Icon className="mr-3 h-5 w-5" />
-              {item.label}
-            </button>
-          );
-        })}
+      <nav className="mt-8">
+        <ul className="space-y-2 px-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            
+            return (
+              <li key={item.id}>
+                <button
+                  onClick={() => setActiveTab(item.id)}
+                  className={cn(
+                    "w-full flex items-center px-3 py-2 text-left rounded-lg transition-colors",
+                    isActive
+                      ? "bg-blue-100 text-blue-900 font-medium"
+                      : "text-gray-700 hover:bg-gray-100"
+                  )}
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <Icon className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "mr-3")} />
+                  {!isCollapsed && <span>{item.label}</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </nav>
     </div>
   );

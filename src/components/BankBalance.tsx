@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,11 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Minus, Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { BankTransaction } from "@/types/database";
+import { BankTransaction, Client, Project, Employee } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
 
 export const BankBalance = () => {
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<"deposit" | "withdrawal">("deposit");
@@ -22,22 +26,32 @@ export const BankBalance = () => {
     description: "",
     amount: 0,
     category: "",
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    client_id: "",
+    project_id: "",
+    employee_id: ""
   });
 
   useEffect(() => {
     fetchTransactions();
+    fetchClients();
+    fetchProjects();
+    fetchEmployees();
   }, []);
 
   const fetchTransactions = async () => {
     try {
       const { data, error } = await supabase
         .from('bank_transactions')
-        .select('*')
+        .select(`
+          *,
+          clients (id, company),
+          projects (id, name),
+          employees (id, name)
+        `)
         .order('date', { ascending: false });
 
       if (error) throw error;
-      // Type cast the data to ensure proper typing
       setTransactions((data || []) as BankTransaction[]);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -51,23 +65,81 @@ export const BankBalance = () => {
     }
   };
 
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('status', 'active')
+        .order('company');
+
+      if (error) throw error;
+      setClients((data || []) as Client[]);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('status', 'active')
+        .order('name');
+
+      if (error) throw error;
+      setProjects((data || []) as Project[]);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('status', 'active')
+        .order('name');
+
+      if (error) throw error;
+      setEmployees((data || []) as Employee[]);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      const transactionData = {
+        ...formData,
+        type: transactionType,
+        client_id: formData.client_id || null,
+        project_id: formData.project_id || null,
+        employee_id: formData.employee_id || null
+      };
+
       const { error } = await supabase
         .from('bank_transactions')
-        .insert([{
-          ...formData,
-          type: transactionType
-        }]);
+        .insert([transactionData]);
 
       if (error) throw error;
       toast({ title: "Success", description: "Transaction added successfully" });
       
       setIsDialogOpen(false);
-      setFormData({ description: "", amount: 0, category: "", date: new Date().toISOString().split('T')[0] });
+      setFormData({ 
+        description: "", 
+        amount: 0, 
+        category: "", 
+        date: new Date().toISOString().split('T')[0],
+        client_id: "",
+        project_id: "",
+        employee_id: ""
+      });
       fetchTransactions();
     } catch (error) {
       console.error('Error saving transaction:', error);
@@ -83,7 +155,15 @@ export const BankBalance = () => {
 
   const openDialog = (type: "deposit" | "withdrawal") => {
     setTransactionType(type);
-    setFormData({ description: "", amount: 0, category: "", date: new Date().toISOString().split('T')[0] });
+    setFormData({ 
+      description: "", 
+      amount: 0, 
+      category: "", 
+      date: new Date().toISOString().split('T')[0],
+      client_id: "",
+      project_id: "",
+      employee_id: ""
+    });
     setIsDialogOpen(true);
   };
 
@@ -169,6 +249,54 @@ export const BankBalance = () => {
               </Select>
             </div>
             <div>
+              <Label htmlFor="client_id">Client (Optional)</Label>
+              <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Client</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.company}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="project_id">Project (Optional)</Label>
+              <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Project</SelectItem>
+                  {projects.filter(p => !formData.client_id || p.client_id === formData.client_id).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="employee_id">Employee (Optional)</Label>
+              <Select value={formData.employee_id} onValueChange={(value) => setFormData({ ...formData, employee_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Employee</SelectItem>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label htmlFor="date">Date</Label>
               <Input
                 id="date"
@@ -238,6 +366,9 @@ export const BankBalance = () => {
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Date</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Description</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Category</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Client</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Project</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Employee</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Type</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-600">Amount</th>
                 </tr>
@@ -248,6 +379,9 @@ export const BankBalance = () => {
                     <td className="py-3 px-4 text-gray-600">{transaction.date}</td>
                     <td className="py-3 px-4 font-medium text-gray-900">{transaction.description}</td>
                     <td className="py-3 px-4 text-gray-600">{transaction.category}</td>
+                    <td className="py-3 px-4 text-gray-600">{transaction.clients?.company || "-"}</td>
+                    <td className="py-3 px-4 text-gray-600">{transaction.projects?.name || "-"}</td>
+                    <td className="py-3 px-4 text-gray-600">{transaction.employees?.name || "-"}</td>
                     <td className="py-3 px-4">
                       <Badge 
                         variant={transaction.type === "deposit" ? "default" : "secondary"}

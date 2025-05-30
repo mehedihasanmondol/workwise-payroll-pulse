@@ -6,6 +6,7 @@ import { EmployeeManagement } from "@/components/EmployeeManagement";
 import { ClientManagement } from "@/components/ClientManagement";
 import { ProjectManagement } from "@/components/ProjectManagement";
 import { WorkingHours } from "@/components/WorkingHours";
+import { Roster } from "@/components/Roster";
 import { Reports } from "@/components/Reports";
 import { BankBalance } from "@/components/BankBalance";
 
@@ -24,6 +25,8 @@ const Index = () => {
         return <ProjectManagement />;
       case "hours":
         return <WorkingHours />;
+      case "roster":
+        return <Roster />;
       case "reports":
         return <Reports />;
       case "bank":
