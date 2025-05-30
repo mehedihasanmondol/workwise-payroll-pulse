@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -260,12 +259,12 @@ export const BankBalance = () => {
             </div>
             <div>
               <Label htmlFor="client_id">Client (Optional)</Label>
-              <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value })}>
+              <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value === "none" ? "" : value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Client</SelectItem>
+                  <SelectItem value="none">No Client</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.company}
@@ -276,12 +275,12 @@ export const BankBalance = () => {
             </div>
             <div>
               <Label htmlFor="project_id">Project (Optional)</Label>
-              <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
+              <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value === "none" ? "" : value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Project</SelectItem>
+                  <SelectItem value="none">No Project</SelectItem>
                   {projects.filter(p => !formData.client_id || p.client_id === formData.client_id).map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
@@ -292,12 +291,12 @@ export const BankBalance = () => {
             </div>
             <div>
               <Label htmlFor="employee_id">Employee (Optional)</Label>
-              <Select value={formData.employee_id} onValueChange={(value) => setFormData({ ...formData, employee_id: value })}>
+              <Select value={formData.employee_id} onValueChange={(value) => setFormData({ ...formData, employee_id: value === "none" ? "" : value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Employee</SelectItem>
+                  <SelectItem value="none">No Employee</SelectItem>
                   {employees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
                       {employee.name}
