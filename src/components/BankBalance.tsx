@@ -42,7 +42,12 @@ export const BankBalance = () => {
     try {
       const { data, error } = await supabase
         .from('bank_transactions')
-        .select('*')
+        .select(`
+          *,
+          clients (id, company),
+          projects (id, name),
+          employees (id, name)
+        `)
         .order('date', { ascending: false });
 
       if (error) throw error;
@@ -110,8 +115,11 @@ export const BankBalance = () => {
 
     try {
       const transactionData = {
-        ...formData,
+        description: formData.description,
+        amount: formData.amount,
         type: transactionType,
+        category: formData.category,
+        date: formData.date,
         client_id: formData.client_id || null,
         project_id: formData.project_id || null,
         employee_id: formData.employee_id || null
@@ -161,19 +169,16 @@ export const BankBalance = () => {
     setIsDialogOpen(true);
   };
 
-  const getClientName = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
-    return client?.company || "-";
+  const getClientName = (transaction: BankTransaction) => {
+    return transaction.clients?.company || "-";
   };
 
-  const getProjectName = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
-    return project?.name || "-";
+  const getProjectName = (transaction: BankTransaction) => {
+    return transaction.projects?.name || "-";
   };
 
-  const getEmployeeName = (employeeId: string) => {
-    const employee = employees.find(e => e.id === employeeId);
-    return employee?.name || "-";
+  const getEmployeeName = (transaction: BankTransaction) => {
+    return transaction.employees?.name || "-";
   };
 
   const totalDeposits = transactions
@@ -388,9 +393,9 @@ export const BankBalance = () => {
                     <td className="py-3 px-4 text-gray-600">{transaction.date}</td>
                     <td className="py-3 px-4 font-medium text-gray-900">{transaction.description}</td>
                     <td className="py-3 px-4 text-gray-600">{transaction.category}</td>
-                    <td className="py-3 px-4 text-gray-600">{getClientName(transaction.client_id || "")}</td>
-                    <td className="py-3 px-4 text-gray-600">{getProjectName(transaction.project_id || "")}</td>
-                    <td className="py-3 px-4 text-gray-600">{getEmployeeName(transaction.employee_id || "")}</td>
+                    <td className="py-3 px-4 text-gray-600">{getClientName(transaction)}</td>
+                    <td className="py-3 px-4 text-gray-600">{getProjectName(transaction)}</td>
+                    <td className="py-3 px-4 text-gray-600">{getEmployeeName(transaction)}</td>
                     <td className="py-3 px-4">
                       <Badge 
                         variant={transaction.type === "deposit" ? "default" : "secondary"}

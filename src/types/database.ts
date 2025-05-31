@@ -69,3 +69,19 @@ export interface BankTransaction {
   projects?: Project;
   employees?: Employee;
 }
+
+export interface Payroll {
+  id: string;
+  employee_id: string;
+  pay_period_start: string;
+  pay_period_end: string;
+  total_hours: number;
+  hourly_rate: number;
+  gross_pay: number;
+  deductions: number;
+  net_pay: number;
+  status: 'pending' | 'approved' | 'paid';
+  created_at: string;
+  updated_at: string;
+  employees?: Employee;
+}

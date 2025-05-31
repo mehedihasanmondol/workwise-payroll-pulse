@@ -3,10 +3,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Plus, Save } from "lucide-react";
+import { Calendar, Plus, Save, Edit, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Employee, Client, Project, WorkingHour } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,7 @@ export const Roster = () => {
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<WorkingHour | null>(null);
   const [dateRange, setDateRange] = useState({
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -25,6 +26,14 @@ export const Roster = () => {
   const { toast } = useToast();
 
   const [rosterEntries, setRosterEntries] = useState<{[key: string]: any}>({});
+  const [formData, setFormData] = useState({
+    employee_id: "",
+    client_id: "",
+    project_id: "",
+    date: new Date().toISOString().split('T')[0],
+    start_time: "",
+    end_time: ""
+  });
 
   useEffect(() => {
     fetchEmployees();
@@ -35,6 +44,21 @@ export const Roster = () => {
 
   useEffect(() => {
     fetchWorkingHours();
+  }, [dateRange]);
+
+  // Set up realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('roster-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'working_hours' },
+        () => { fetchWorkingHours(); }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [dateRange]);
 
   const fetchEmployees = async () => {
@@ -181,6 +205,75 @@ export const Roster = () => {
     }
   };
 
+  const handleEditEntry = (entry: WorkingHour) => {
+    setEditingEntry(entry);
+    setFormData({
+      employee_id: entry.employee_id,
+      client_id: entry.client_id,
+      project_id: entry.project_id,
+      date: entry.date,
+      start_time: entry.start_time,
+      end_time: entry.end_time
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteEntry = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('working_hours')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast({ title: "Success", description: "Entry deleted successfully" });
+      fetchWorkingHours();
+    } catch (error) {
+      console.error('Error deleting entry:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete entry",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEntry) return;
+
+    try {
+      const totalHours = calculateTotalHours(formData.start_time, formData.end_time);
+      
+      const { error } = await supabase
+        .from('working_hours')
+        .update({
+          employee_id: formData.employee_id,
+          client_id: formData.client_id,
+          project_id: formData.project_id,
+          date: formData.date,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          total_hours: totalHours
+        })
+        .eq('id', editingEntry.id);
+
+      if (error) throw error;
+      
+      toast({ title: "Success", description: "Entry updated successfully" });
+      setIsDialogOpen(false);
+      setEditingEntry(null);
+      fetchWorkingHours();
+    } catch (error) {
+      console.error('Error updating entry:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update entry",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading && workingHours.length === 0) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
@@ -214,6 +307,97 @@ export const Roster = () => {
           </Button>
         </div>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingEntry ? "Edit" : "Add"} Working Hours</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Employee</Label>
+              <Select value={formData.employee_id} onValueChange={(value) => setFormData({ ...formData, employee_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Client</Label>
+              <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.company}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Project</Label>
+              <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.filter(p => !formData.client_id || p.client_id === formData.client_id).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Start Time</Label>
+                <Input
+                  type="time"
+                  value={formData.start_time}
+                  onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>End Time</Label>
+                <Input
+                  type="time"
+                  value={formData.end_time}
+                  onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                />
+              </div>
+            </div>
+            {formData.start_time && formData.end_time && (
+              <div className="text-center">
+                <span className="text-lg font-medium">
+                  Total Hours: {calculateTotalHours(formData.start_time, formData.end_time)}h
+                </span>
+              </div>
+            )}
+            <Button onClick={handleSaveEdit} className="w-full">
+              {editingEntry ? "Update Entry" : "Add Entry"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -249,11 +433,29 @@ export const Roster = () => {
                           {existingHours.length > 0 ? (
                             <div className="space-y-1">
                               {existingHours.map((wh) => (
-                                <div key={wh.id} className="text-xs bg-blue-50 p-2 rounded border">
+                                <div key={wh.id} className="text-xs bg-blue-50 p-2 rounded border relative group">
                                   <div className="font-medium">{wh.clients?.company}</div>
                                   <div>{wh.projects?.name}</div>
                                   <div>{wh.start_time} - {wh.end_time}</div>
                                   <div className="text-blue-600">{wh.total_hours}h</div>
+                                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => handleEditEntry(wh)}
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 text-red-600"
+                                      onClick={() => handleDeleteEntry(wh.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                 </div>
                               ))}
                             </div>

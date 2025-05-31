@@ -62,7 +62,7 @@ export const Dashboard = () => {
         .gte('date', weekStart.toISOString().split('T')[0])
         .lte('date', weekEnd.toISOString().split('T')[0]);
 
-      // Fetch bank balance
+      // Fetch bank balance with proper select
       const { data: transactions } = await supabase
         .from('bank_transactions')
         .select('amount, type');

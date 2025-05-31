@@ -1,55 +1,58 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Calendar, Users, Download, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calculator, DollarSign, Clock, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Employee, WorkingHour } from "@/types/database";
+import { Payroll as PayrollType, Employee, WorkingHour } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
 
-interface PayrollEntry {
-  employee_id: string;
-  employee_name: string;
-  hourly_rate: number;
-  total_hours: number;
-  gross_pay: number;
-  status: 'pending' | 'processed' | 'paid';
-  period_start: string;
-  period_end: string;
-}
-
-interface WorkingHourWithEmployee {
-  id: string;
-  employee_id: string;
-  client_id: string;
-  project_id: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  total_hours: number;
-  status: 'pending' | 'approved' | 'rejected';
-  created_at: string;
-  updated_at: string;
-  employees: {
-    id: string;
-    name: string;
-    hourly_rate: number;
-  };
-}
-
 export const Payroll = () => {
+  const [payrolls, setPayrolls] = useState<PayrollType[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [workingHours, setWorkingHours] = useState<WorkingHourWithEmployee[]>([]);
-  const [payrollEntries, setPayrollEntries] = useState<PayrollEntry[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState("current-week");
   const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
+  const [payPeriod, setPayPeriod] = useState({
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+  });
+
   useEffect(() => {
+    fetchPayrolls();
     fetchEmployees();
-    fetchWorkingHours();
-  }, [selectedPeriod]);
+  }, []);
+
+  const fetchPayrolls = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payroll')
+        .select(`
+          *,
+          employees (id, name, email)
+        `)
+        .order('pay_period_end', { ascending: false });
+
+      if (error) throw error;
+      setPayrolls((data || []) as PayrollType[]);
+    } catch (error) {
+      console.error('Error fetching payrolls:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch payrolls",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -66,145 +69,114 @@ export const Payroll = () => {
     }
   };
 
-  const fetchWorkingHours = async () => {
+  const generatePayroll = async () => {
+    setIsGenerating(true);
     try {
-      const dateRange = getDateRange();
-      
-      const { data, error } = await supabase
+      // Get working hours for the pay period
+      const { data: workingHours, error: hoursError } = await supabase
         .from('working_hours')
-        .select(`
-          *,
-          employees (id, name, hourly_rate)
-        `)
-        .gte('date', dateRange.start)
-        .lte('date', dateRange.end)
+        .select('*, employees!inner(*)')
+        .gte('date', payPeriod.startDate)
+        .lte('date', payPeriod.endDate)
         .eq('status', 'approved');
 
-      if (error) throw error;
+      if (hoursError) throw hoursError;
+
+      // Group hours by employee
+      const employeeHours: { [key: string]: { employee: Employee; totalHours: number } } = {};
       
-      const typedWorkingHours: WorkingHourWithEmployee[] = (data || []).map(item => ({
-        id: item.id,
-        employee_id: item.employee_id,
-        client_id: item.client_id,
-        project_id: item.project_id,
-        date: item.date,
-        start_time: item.start_time,
-        end_time: item.end_time,
-        total_hours: item.total_hours,
-        status: item.status as 'pending' | 'approved' | 'rejected',
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        employees: item.employees
-      }));
-      
-      setWorkingHours(typedWorkingHours);
-      calculatePayroll(typedWorkingHours, employees);
-    } catch (error) {
-      console.error('Error fetching working hours:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      workingHours?.forEach((wh: WorkingHour & { employees: Employee }) => {
+        if (!employeeHours[wh.employee_id]) {
+          employeeHours[wh.employee_id] = {
+            employee: wh.employees,
+            totalHours: 0
+          };
+        }
+        employeeHours[wh.employee_id].totalHours += wh.total_hours;
+      });
 
-  const getDateRange = () => {
-    const now = new Date();
-    let start = new Date();
-    let end = new Date();
+      // Create payroll records
+      const payrollRecords = Object.values(employeeHours).map(({ employee, totalHours }) => {
+        const grossPay = totalHours * employee.hourly_rate;
+        const deductions = grossPay * 0.2; // 20% deductions (taxes, etc.)
+        const netPay = grossPay - deductions;
 
-    switch (selectedPeriod) {
-      case "current-week":
-        const dayOfWeek = now.getDay();
-        start = new Date(now.getTime() - dayOfWeek * 24 * 60 * 60 * 1000);
-        end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
-        break;
-      case "last-week":
-        const lastWeekStart = new Date(now.getTime() - (now.getDay() + 7) * 24 * 60 * 60 * 1000);
-        start = lastWeekStart;
-        end = new Date(lastWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
-        break;
-      case "current-month":
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        break;
-      default:
-        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        end = now;
-    }
-
-    return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0]
-    };
-  };
-
-  const calculatePayroll = (hours: WorkingHourWithEmployee[], employeeList: Employee[]) => {
-    const payrollMap = new Map<string, PayrollEntry>();
-    const dateRange = getDateRange();
-
-    employeeList.forEach(employee => {
-      const employeeHours = hours.filter(h => h.employee_id === employee.id);
-      const totalHours = employeeHours.reduce((sum, h) => sum + h.total_hours, 0);
-      const grossPay = totalHours * employee.hourly_rate;
-
-      if (totalHours > 0) {
-        payrollMap.set(employee.id, {
+        return {
           employee_id: employee.id,
-          employee_name: employee.name,
-          hourly_rate: employee.hourly_rate,
+          pay_period_start: payPeriod.startDate,
+          pay_period_end: payPeriod.endDate,
           total_hours: totalHours,
+          hourly_rate: employee.hourly_rate,
           gross_pay: grossPay,
-          status: 'pending',
-          period_start: dateRange.start,
-          period_end: dateRange.end
+          deductions: deductions,
+          net_pay: netPay,
+          status: 'pending'
+        };
+      });
+
+      if (payrollRecords.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No approved working hours found for the selected period",
+          variant: "destructive"
         });
+        return;
       }
-    });
 
-    setPayrollEntries(Array.from(payrollMap.values()));
-  };
+      const { error } = await supabase
+        .from('payroll')
+        .insert(payrollRecords);
 
-  const processPayroll = async (employeeId: string) => {
-    setPayrollEntries(prev => prev.map(entry => 
-      entry.employee_id === employeeId 
-        ? { ...entry, status: 'processed' as const }
-        : entry
-    ));
-    
-    toast({ 
-      title: "Payroll Processed", 
-      description: "Employee payroll has been processed and is ready for payment" 
-    });
-  };
+      if (error) throw error;
 
-  const markAsPaid = async (employeeId: string) => {
-    setPayrollEntries(prev => prev.map(entry => 
-      entry.employee_id === employeeId 
-        ? { ...entry, status: 'paid' as const }
-        : entry
-    ));
-    
-    toast({ 
-      title: "Payment Confirmed", 
-      description: "Employee payment has been marked as paid" 
-    });
-  };
+      toast({
+        title: "Success",
+        description: `Generated payroll for ${payrollRecords.length} employees`
+      });
 
-  const getTotalPayroll = () => {
-    return payrollEntries.reduce((sum, entry) => sum + entry.gross_pay, 0);
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
-      case 'processed':
-        return <Badge variant="outline" className="text-blue-600 border-blue-600">Processed</Badge>;
-      case 'paid':
-        return <Badge variant="default" className="bg-green-600">Paid</Badge>;
-      default:
-        return <Badge variant="secondary">Unknown</Badge>;
+      setIsDialogOpen(false);
+      fetchPayrolls();
+    } catch (error) {
+      console.error('Error generating payroll:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate payroll",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
+
+  const updatePayrollStatus = async (id: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('payroll')
+        .update({ status })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Payroll status updated to ${status}`
+      });
+
+      fetchPayrolls();
+    } catch (error) {
+      console.error('Error updating payroll status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update payroll status",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const totalGrossPay = payrolls.reduce((sum, p) => sum + p.gross_pay, 0);
+  const totalNetPay = payrolls.reduce((sum, p) => sum + p.net_pay, 0);
+  const totalDeductions = payrolls.reduce((sum, p) => sum + p.deductions, 0);
+  const pendingPayrolls = payrolls.filter(p => p.status === 'pending').length;
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
@@ -214,73 +186,100 @@ export const Payroll = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Payroll Management</h1>
-        <div className="flex items-center gap-4">
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current-week">Current Week</SelectItem>
-              <SelectItem value="last-week">Last Week</SelectItem>
-              <SelectItem value="current-month">Current Month</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-        </div>
+        <Button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2">
+          <Calculator className="h-4 w-4" />
+          Generate Payroll
+        </Button>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate Payroll</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="startDate">Pay Period Start</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={payPeriod.startDate}
+                onChange={(e) => setPayPeriod({ ...payPeriod, startDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="endDate">Pay Period End</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={payPeriod.endDate}
+                onChange={(e) => setPayPeriod({ ...payPeriod, endDate: e.target.value })}
+              />
+            </div>
+            <Button onClick={generatePayroll} disabled={isGenerating} className="w-full">
+              {isGenerating ? "Generating..." : "Generate Payroll"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Payroll</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total Gross Pay</CardTitle>
             <DollarSign className="h-5 w-5 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">${getTotalPayroll().toLocaleString()}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Employees</CardTitle>
-            <Users className="h-5 w-5 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{payrollEntries.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending</CardTitle>
-            <Calendar className="h-5 w-5 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {payrollEntries.filter(e => e.status === 'pending').length}
+            <div className="text-2xl font-bold text-green-600">
+              ${totalGrossPay.toLocaleString()}
             </div>
+            <p className="text-xs text-muted-foreground">Before deductions</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Paid</CardTitle>
-            <CheckCircle className="h-5 w-5 text-green-600" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total Net Pay</CardTitle>
+            <DollarSign className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {payrollEntries.filter(e => e.status === 'paid').length}
+            <div className="text-2xl font-bold text-blue-600">
+              ${totalNetPay.toLocaleString()}
             </div>
+            <p className="text-xs text-muted-foreground">After deductions</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Deductions</CardTitle>
+            <DollarSign className="h-5 w-5 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              ${totalDeductions.toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">Taxes & benefits</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Pending Payrolls</CardTitle>
+            <Users className="h-5 w-5 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {pendingPayrolls}
+            </div>
+            <p className="text-xs text-muted-foreground">Awaiting approval</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Payroll Details</CardTitle>
+          <CardTitle>Payroll Records</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -288,36 +287,68 @@ export const Payroll = () => {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Employee</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Hourly Rate</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Total Hours</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Gross Pay</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Pay Period</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-600">Hours</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-600">Rate</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-600">Gross Pay</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-600">Deductions</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-600">Net Pay</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {payrollEntries.map((entry) => (
-                  <tr key={entry.employee_id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 font-medium text-gray-900">{entry.employee_name}</td>
-                    <td className="py-3 px-4 text-gray-600">${entry.hourly_rate}/hr</td>
-                    <td className="py-3 px-4 text-gray-600">{entry.total_hours}h</td>
-                    <td className="py-3 px-4 font-medium text-gray-900">${entry.gross_pay.toLocaleString()}</td>
-                    <td className="py-3 px-4">{getStatusBadge(entry.status)}</td>
+                {payrolls.map((payroll) => (
+                  <tr key={payroll.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium text-gray-900">
+                      {payroll.employees?.name || "Unknown"}
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">
+                      {payroll.pay_period_start} to {payroll.pay_period_end}
+                    </td>
+                    <td className="py-3 px-4 text-right text-gray-600">
+                      {payroll.total_hours.toFixed(1)}h
+                    </td>
+                    <td className="py-3 px-4 text-right text-gray-600">
+                      ${payroll.hourly_rate.toFixed(2)}
+                    </td>
+                    <td className="py-3 px-4 text-right font-medium text-green-600">
+                      ${payroll.gross_pay.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-right text-red-600">
+                      ${payroll.deductions.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-right font-medium text-blue-600">
+                      ${payroll.net_pay.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge 
+                        variant={payroll.status === "paid" ? "default" : 
+                                payroll.status === "approved" ? "secondary" : "outline"}
+                        className={
+                          payroll.status === "paid" ? "bg-green-100 text-green-800" :
+                          payroll.status === "approved" ? "bg-blue-100 text-blue-800" :
+                          "bg-yellow-100 text-yellow-800"
+                        }
+                      >
+                        {payroll.status}
+                      </Badge>
+                    </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
-                        {entry.status === 'pending' && (
-                          <Button 
-                            size="sm" 
-                            onClick={() => processPayroll(entry.employee_id)}
+                        {payroll.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            onClick={() => updatePayrollStatus(payroll.id, 'approved')}
                           >
-                            Process
+                            Approve
                           </Button>
                         )}
-                        {entry.status === 'processed' && (
-                          <Button 
-                            size="sm" 
+                        {payroll.status === 'approved' && (
+                          <Button
+                            size="sm"
                             variant="outline"
-                            onClick={() => markAsPaid(entry.employee_id)}
+                            onClick={() => updatePayrollStatus(payroll.id, 'paid')}
                           >
                             Mark Paid
                           </Button>

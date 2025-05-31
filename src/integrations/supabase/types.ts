@@ -13,34 +13,65 @@ export type Database = {
         Row: {
           amount: number
           category: string
+          client_id: string | null
           created_at: string
           date: string
           description: string
+          employee_id: string | null
           id: string
+          project_id: string | null
           type: string
           updated_at: string
         }
         Insert: {
           amount: number
           category: string
+          client_id?: string | null
           created_at?: string
           date?: string
           description: string
+          employee_id?: string | null
           id?: string
+          project_id?: string | null
           type: string
           updated_at?: string
         }
         Update: {
           amount?: number
           category?: string
+          client_id?: string | null
           created_at?: string
           date?: string
           description?: string
+          employee_id?: string | null
           id?: string
+          project_id?: string | null
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -110,6 +141,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      payroll: {
+        Row: {
+          created_at: string
+          deductions: number
+          employee_id: string
+          gross_pay: number
+          hourly_rate: number
+          id: string
+          net_pay: number
+          pay_period_end: string
+          pay_period_start: string
+          status: string
+          total_hours: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deductions?: number
+          employee_id: string
+          gross_pay?: number
+          hourly_rate?: number
+          id?: string
+          net_pay?: number
+          pay_period_end: string
+          pay_period_start: string
+          status?: string
+          total_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deductions?: number
+          employee_id?: string
+          gross_pay?: number
+          hourly_rate?: number
+          id?: string
+          net_pay?: number
+          pay_period_end?: string
+          pay_period_start?: string
+          status?: string
+          total_hours?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
