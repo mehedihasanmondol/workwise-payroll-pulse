@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Plus, Save, Edit, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Plus, Save, Edit, Trash2, Check, X, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Employee, Client, Project, WorkingHour } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +33,8 @@ export const Roster = () => {
     project_id: "",
     date: new Date().toISOString().split('T')[0],
     start_time: "",
-    end_time: ""
+    end_time: "",
+    status: "pending" as "pending" | "approved" | "rejected"
   });
 
   useEffect(() => {
@@ -172,7 +174,8 @@ export const Roster = () => {
         entry.start_time && entry.end_time && entry.client_id && entry.project_id
       ).map((entry: any) => ({
         ...entry,
-        total_hours: calculateTotalHours(entry.start_time, entry.end_time)
+        total_hours: calculateTotalHours(entry.start_time, entry.end_time),
+        status: 'pending'
       }));
 
       if (entries.length === 0) {
@@ -213,7 +216,8 @@ export const Roster = () => {
       project_id: entry.project_id,
       date: entry.date,
       start_time: entry.start_time,
-      end_time: entry.end_time
+      end_time: entry.end_time,
+      status: entry.status as "pending" | "approved" | "rejected"
     });
     setIsDialogOpen(true);
   };
@@ -239,6 +243,27 @@ export const Roster = () => {
     }
   };
 
+  const handleStatusChange = async (id: string, newStatus: "pending" | "approved" | "rejected") => {
+    try {
+      const { error } = await supabase
+        .from('working_hours')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast({ title: "Success", description: `Status updated to ${newStatus}` });
+      fetchWorkingHours();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update status",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (!editingEntry) return;
 
@@ -254,7 +279,8 @@ export const Roster = () => {
           date: formData.date,
           start_time: formData.start_time,
           end_time: formData.end_time,
-          total_hours: totalHours
+          total_hours: totalHours,
+          status: formData.status
         })
         .eq('id', editingEntry.id);
 
@@ -271,6 +297,22 @@ export const Roster = () => {
         description: "Failed to update entry",
         variant: "destructive"
       });
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'approved': return 'default';
+      case 'rejected': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'approved': return <Check className="h-3 w-3" />;
+      case 'rejected': return <X className="h-3 w-3" />;
+      default: return <Clock className="h-3 w-3" />;
     }
   };
 
@@ -385,6 +427,21 @@ export const Roster = () => {
                 />
               </div>
             </div>
+            {editingEntry && (
+              <div>
+                <Label>Status</Label>
+                <Select value={formData.status} onValueChange={(value: "pending" | "approved" | "rejected") => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {formData.start_time && formData.end_time && (
               <div className="text-center">
                 <span className="text-lg font-medium">
@@ -438,6 +495,12 @@ export const Roster = () => {
                                   <div>{wh.projects?.name}</div>
                                   <div>{wh.start_time} - {wh.end_time}</div>
                                   <div className="text-blue-600">{wh.total_hours}h</div>
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Badge variant={getStatusBadgeVariant(wh.status)} className="text-xs">
+                                      {getStatusIcon(wh.status)}
+                                      {wh.status}
+                                    </Badge>
+                                  </div>
                                   <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-1">
                                     <Button
                                       size="sm"
@@ -456,6 +519,26 @@ export const Roster = () => {
                                       <Trash2 className="h-3 w-3" />
                                     </Button>
                                   </div>
+                                  {wh.status === 'pending' && (
+                                    <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-5 w-5 p-0 text-green-600"
+                                        onClick={() => handleStatusChange(wh.id, 'approved')}
+                                      >
+                                        <Check className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-5 w-5 p-0 text-red-600"
+                                        onClick={() => handleStatusChange(wh.id, 'rejected')}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>

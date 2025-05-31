@@ -7,15 +7,17 @@ import { ClientManagement } from "@/components/ClientManagement";
 import { ProjectManagement } from "@/components/ProjectManagement";
 import { WorkingHours } from "@/components/WorkingHours";
 import { Roster } from "@/components/Roster";
-import { Payroll } from "@/components/Payroll";
-import { Notifications } from "@/components/Notifications";
-import { Reports } from "@/components/Reports";
+import { PayrollComponent } from "@/components/Payroll";
 import { BankBalance } from "@/components/BankBalance";
+import { Reports } from "@/components/Reports";
+import { Button } from "@/components/ui/button";
+import { User } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  const renderContent = () => {
+  const renderActiveComponent = () => {
     switch (activeTab) {
       case "dashboard":
         return <Dashboard />;
@@ -25,31 +27,40 @@ const Index = () => {
         return <ClientManagement />;
       case "projects":
         return <ProjectManagement />;
-      case "hours":
+      case "working-hours":
         return <WorkingHours />;
       case "roster":
         return <Roster />;
       case "payroll":
-        return <Payroll />;
-      case "notifications":
-        return <Notifications />;
+        return <PayrollComponent />;
+      case "bank-balance":
+        return <BankBalance />;
       case "reports":
         return <Reports />;
-      case "bank":
-        return <BankBalance />;
       default:
         return <Dashboard />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="flex-1 ml-64 p-8">
-        <div className="max-w-7xl mx-auto">
-          {renderContent()}
-        </div>
-      </main>
+    <div className="flex h-screen bg-gray-100">
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-white shadow-sm border-b px-6 py-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-900">Schedule & Payroll Manager</h1>
+            <Link to="/employee">
+              <Button variant="outline" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Employee Portal
+              </Button>
+            </Link>
+          </div>
+        </header>
+        <main className="flex-1 overflow-auto p-6">
+          {renderActiveComponent()}
+        </main>
+      </div>
     </div>
   );
 };

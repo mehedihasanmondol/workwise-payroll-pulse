@@ -4,55 +4,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, DollarSign, Clock, Users } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Payroll as PayrollType, Employee, WorkingHour } from "@/types/database";
+import { Employee, Payroll, WorkingHour } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
 
-export const Payroll = () => {
-  const [payrolls, setPayrolls] = useState<PayrollType[]>([]);
+export const PayrollComponent = () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null);
   const { toast } = useToast();
 
-  const [payPeriod, setPayPeriod] = useState({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+  const [formData, setFormData] = useState({
+    employee_id: "",
+    pay_period_start: "",
+    pay_period_end: "",
+    total_hours: 0,
+    hourly_rate: 0,
+    gross_pay: 0,
+    deductions: 0,
+    net_pay: 0,
+    status: "pending" as "pending" | "approved" | "paid"
   });
 
   useEffect(() => {
     fetchPayrolls();
     fetchEmployees();
   }, []);
-
-  const fetchPayrolls = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('payroll')
-        .select(`
-          *,
-          employees (id, name, email)
-        `)
-        .order('pay_period_end', { ascending: false });
-
-      if (error) throw error;
-      setPayrolls((data || []) as PayrollType[]);
-    } catch (error) {
-      console.error('Error fetching payrolls:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch payrolls",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchEmployees = async () => {
     try {
@@ -69,116 +53,163 @@ export const Payroll = () => {
     }
   };
 
-  const generatePayroll = async () => {
-    setIsGenerating(true);
+  const fetchPayrolls = async () => {
     try {
-      // Get working hours for the pay period
-      const { data: workingHours, error: hoursError } = await supabase
-        .from('working_hours')
-        .select('*, employees!inner(*)')
-        .gte('date', payPeriod.startDate)
-        .lte('date', payPeriod.endDate)
-        .eq('status', 'approved');
-
-      if (hoursError) throw hoursError;
-
-      // Group hours by employee
-      const employeeHours: { [key: string]: { employee: Employee; totalHours: number } } = {};
-      
-      workingHours?.forEach((wh: WorkingHour & { employees: Employee }) => {
-        if (!employeeHours[wh.employee_id]) {
-          employeeHours[wh.employee_id] = {
-            employee: wh.employees,
-            totalHours: 0
-          };
-        }
-        employeeHours[wh.employee_id].totalHours += wh.total_hours;
-      });
-
-      // Create payroll records
-      const payrollRecords = Object.values(employeeHours).map(({ employee, totalHours }) => {
-        const grossPay = totalHours * employee.hourly_rate;
-        const deductions = grossPay * 0.2; // 20% deductions (taxes, etc.)
-        const netPay = grossPay - deductions;
-
-        return {
-          employee_id: employee.id,
-          pay_period_start: payPeriod.startDate,
-          pay_period_end: payPeriod.endDate,
-          total_hours: totalHours,
-          hourly_rate: employee.hourly_rate,
-          gross_pay: grossPay,
-          deductions: deductions,
-          net_pay: netPay,
-          status: 'pending'
-        };
-      });
-
-      if (payrollRecords.length === 0) {
-        toast({
-          title: "No Data",
-          description: "No approved working hours found for the selected period",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('payroll')
-        .insert(payrollRecords);
+        .select(`
+          *,
+          employees (id, name, hourly_rate)
+        `)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: `Generated payroll for ${payrollRecords.length} employees`
-      });
-
-      setIsDialogOpen(false);
-      fetchPayrolls();
+      setPayrolls((data || []) as Payroll[]);
     } catch (error) {
-      console.error('Error generating payroll:', error);
+      console.error('Error fetching payrolls:', error);
       toast({
         title: "Error",
-        description: "Failed to generate payroll",
+        description: "Failed to fetch payroll records",
         variant: "destructive"
       });
     } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
 
-  const updatePayrollStatus = async (id: string, status: string) => {
+  const calculatePayrollFromHours = async (employeeId: string, startDate: string, endDate: string) => {
     try {
-      const { error } = await supabase
-        .from('payroll')
-        .update({ status })
-        .eq('id', id);
+      const { data: workingHours, error } = await supabase
+        .from('working_hours')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('status', 'approved')
+        .gte('date', startDate)
+        .lte('date', endDate);
 
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: `Payroll status updated to ${status}`
-      });
+      const employee = employees.find(emp => emp.id === employeeId);
+      if (!employee) return;
 
-      fetchPayrolls();
+      const totalHours = (workingHours || []).reduce((sum, wh) => sum + (wh.total_hours || 0), 0);
+      const grossPay = totalHours * employee.hourly_rate;
+      const netPay = grossPay - formData.deductions;
+
+      setFormData(prev => ({
+        ...prev,
+        total_hours: totalHours,
+        hourly_rate: employee.hourly_rate,
+        gross_pay: grossPay,
+        net_pay: netPay
+      }));
+
+      toast({
+        title: "Calculated",
+        description: `Found ${totalHours} approved hours for ${employee.name}`
+      });
     } catch (error) {
-      console.error('Error updating payroll status:', error);
+      console.error('Error calculating payroll:', error);
       toast({
         title: "Error",
-        description: "Failed to update payroll status",
+        description: "Failed to calculate payroll from working hours",
         variant: "destructive"
       });
     }
   };
 
-  const totalGrossPay = payrolls.reduce((sum, p) => sum + p.gross_pay, 0);
-  const totalNetPay = payrolls.reduce((sum, p) => sum + p.net_pay, 0);
-  const totalDeductions = payrolls.reduce((sum, p) => sum + p.deductions, 0);
-  const pendingPayrolls = payrolls.filter(p => p.status === 'pending').length;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-  if (loading) {
+    try {
+      if (editingPayroll) {
+        const { error } = await supabase
+          .from('payroll')
+          .update(formData)
+          .eq('id', editingPayroll.id);
+
+        if (error) throw error;
+        toast({ title: "Success", description: "Payroll updated successfully" });
+      } else {
+        const { error } = await supabase
+          .from('payroll')
+          .insert([formData]);
+
+        if (error) throw error;
+        toast({ title: "Success", description: "Payroll record created successfully" });
+      }
+
+      setIsDialogOpen(false);
+      setEditingPayroll(null);
+      setFormData({
+        employee_id: "",
+        pay_period_start: "",
+        pay_period_end: "",
+        total_hours: 0,
+        hourly_rate: 0,
+        gross_pay: 0,
+        deductions: 0,
+        net_pay: 0,
+        status: "pending"
+      });
+      fetchPayrolls();
+    } catch (error) {
+      console.error('Error saving payroll:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save payroll record",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (payroll: Payroll) => {
+    setEditingPayroll(payroll);
+    setFormData({
+      employee_id: payroll.employee_id,
+      pay_period_start: payroll.pay_period_start,
+      pay_period_end: payroll.pay_period_end,
+      total_hours: payroll.total_hours,
+      hourly_rate: payroll.hourly_rate,
+      gross_pay: payroll.gross_pay,
+      deductions: payroll.deductions,
+      net_pay: payroll.net_pay,
+      status: payroll.status
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this payroll record?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('payroll')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast({ title: "Success", description: "Payroll record deleted successfully" });
+      fetchPayrolls();
+    } catch (error) {
+      console.error('Error deleting payroll:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete payroll record",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const filteredPayrolls = payrolls.filter(payroll =>
+    payroll.employees?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    payroll.status.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading && payrolls.length === 0) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
 
@@ -186,100 +217,212 @@ export const Payroll = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Payroll Management</h1>
-        <Button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2">
-          <Calculator className="h-4 w-4" />
-          Generate Payroll
-        </Button>
-      </div>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate Payroll</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="startDate">Pay Period Start</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={payPeriod.startDate}
-                onChange={(e) => setPayPeriod({ ...payPeriod, startDate: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="endDate">Pay Period End</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={payPeriod.endDate}
-                onChange={(e) => setPayPeriod({ ...payPeriod, endDate: e.target.value })}
-              />
-            </div>
-            <Button onClick={generatePayroll} disabled={isGenerating} className="w-full">
-              {isGenerating ? "Generating..." : "Generate Payroll"}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2" onClick={() => {
+              setEditingPayroll(null);
+              setFormData({
+                employee_id: "",
+                pay_period_start: "",
+                pay_period_end: "",
+                total_hours: 0,
+                hourly_rate: 0,
+                gross_pay: 0,
+                deductions: 0,
+                net_pay: 0,
+                status: "pending"
+              });
+            }}>
+              <Plus className="h-4 w-4" />
+              Create Payroll
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{editingPayroll ? "Edit Payroll" : "Create New Payroll"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="employee_id">Employee</Label>
+                  <Select value={formData.employee_id} onValueChange={(value) => setFormData({ ...formData, employee_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select employee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.name} - ${employee.hourly_rate}/hr
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={formData.status} onValueChange={(value: "pending" | "approved" | "paid") => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="pay_period_start">Pay Period Start</Label>
+                  <Input
+                    id="pay_period_start"
+                    type="date"
+                    value={formData.pay_period_start}
+                    onChange={(e) => setFormData({ ...formData, pay_period_start: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pay_period_end">Pay Period End</Label>
+                  <Input
+                    id="pay_period_end"
+                    type="date"
+                    value={formData.pay_period_end}
+                    onChange={(e) => setFormData({ ...formData, pay_period_end: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Gross Pay</CardTitle>
-            <DollarSign className="h-5 w-5 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              ${totalGrossPay.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">Before deductions</p>
-          </CardContent>
-        </Card>
+              {formData.employee_id && formData.pay_period_start && formData.pay_period_end && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => calculatePayrollFromHours(formData.employee_id, formData.pay_period_start, formData.pay_period_end)}
+                  className="w-full"
+                >
+                  <Calculator className="h-4 w-4 mr-2" />
+                  Calculate from Approved Hours
+                </Button>
+              )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Net Pay</CardTitle>
-            <DollarSign className="h-5 w-5 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              ${totalNetPay.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">After deductions</p>
-          </CardContent>
-        </Card>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="total_hours">Total Hours</Label>
+                  <Input
+                    id="total_hours"
+                    type="number"
+                    step="0.01"
+                    value={formData.total_hours}
+                    onChange={(e) => {
+                      const hours = parseFloat(e.target.value) || 0;
+                      const gross = hours * formData.hourly_rate;
+                      setFormData({ 
+                        ...formData, 
+                        total_hours: hours,
+                        gross_pay: gross,
+                        net_pay: gross - formData.deductions
+                      });
+                    }}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="hourly_rate">Hourly Rate</Label>
+                  <Input
+                    id="hourly_rate"
+                    type="number"
+                    step="0.01"
+                    value={formData.hourly_rate}
+                    onChange={(e) => {
+                      const rate = parseFloat(e.target.value) || 0;
+                      const gross = formData.total_hours * rate;
+                      setFormData({ 
+                        ...formData, 
+                        hourly_rate: rate,
+                        gross_pay: gross,
+                        net_pay: gross - formData.deductions
+                      });
+                    }}
+                    required
+                  />
+                </div>
+              </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Deductions</CardTitle>
-            <DollarSign className="h-5 w-5 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              ${totalDeductions.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">Taxes & benefits</p>
-          </CardContent>
-        </Card>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="gross_pay">Gross Pay</Label>
+                  <Input
+                    id="gross_pay"
+                    type="number"
+                    step="0.01"
+                    value={formData.gross_pay}
+                    onChange={(e) => {
+                      const gross = parseFloat(e.target.value) || 0;
+                      setFormData({ 
+                        ...formData, 
+                        gross_pay: gross,
+                        net_pay: gross - formData.deductions
+                      });
+                    }}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="deductions">Deductions</Label>
+                  <Input
+                    id="deductions"
+                    type="number"
+                    step="0.01"
+                    value={formData.deductions}
+                    onChange={(e) => {
+                      const deductions = parseFloat(e.target.value) || 0;
+                      setFormData({ 
+                        ...formData, 
+                        deductions: deductions,
+                        net_pay: formData.gross_pay - deductions
+                      });
+                    }}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="net_pay">Net Pay</Label>
+                  <Input
+                    id="net_pay"
+                    type="number"
+                    step="0.01"
+                    value={formData.net_pay}
+                    readOnly
+                    className="bg-gray-100"
+                  />
+                </div>
+              </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending Payrolls</CardTitle>
-            <Users className="h-5 w-5 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {pendingPayrolls}
-            </div>
-            <p className="text-xs text-muted-foreground">Awaiting approval</p>
-          </CardContent>
-        </Card>
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? "Saving..." : editingPayroll ? "Update Payroll" : "Create Payroll"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Payroll Records</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Payroll Records ({payrolls.length})</CardTitle>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search payroll..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -287,72 +430,42 @@ export const Payroll = () => {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Employee</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-600">Pay Period</th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-600">Hours</th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-600">Rate</th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-600">Gross Pay</th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-600">Deductions</th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-600">Net Pay</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Period</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Hours</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Rate</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Gross Pay</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Net Pay</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {payrolls.map((payroll) => (
+                {filteredPayrolls.map((payroll) => (
                   <tr key={payroll.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 font-medium text-gray-900">
-                      {payroll.employees?.name || "Unknown"}
-                    </td>
+                    <td className="py-3 px-4 font-medium text-gray-900">{payroll.employees?.name}</td>
                     <td className="py-3 px-4 text-gray-600">
-                      {payroll.pay_period_start} to {payroll.pay_period_end}
+                      {new Date(payroll.pay_period_start).toLocaleDateString()} - {new Date(payroll.pay_period_end).toLocaleDateString()}
                     </td>
-                    <td className="py-3 px-4 text-right text-gray-600">
-                      {payroll.total_hours.toFixed(1)}h
-                    </td>
-                    <td className="py-3 px-4 text-right text-gray-600">
-                      ${payroll.hourly_rate.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-4 text-right font-medium text-green-600">
-                      ${payroll.gross_pay.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-right text-red-600">
-                      ${payroll.deductions.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-right font-medium text-blue-600">
-                      ${payroll.net_pay.toLocaleString()}
-                    </td>
+                    <td className="py-3 px-4 text-gray-600">{payroll.total_hours}h</td>
+                    <td className="py-3 px-4 text-gray-600">${payroll.hourly_rate}</td>
+                    <td className="py-3 px-4 text-gray-600">${payroll.gross_pay}</td>
+                    <td className="py-3 px-4 text-gray-600">${payroll.net_pay}</td>
                     <td className="py-3 px-4">
-                      <Badge 
-                        variant={payroll.status === "paid" ? "default" : 
-                                payroll.status === "approved" ? "secondary" : "outline"}
-                        className={
-                          payroll.status === "paid" ? "bg-green-100 text-green-800" :
-                          payroll.status === "approved" ? "bg-blue-100 text-blue-800" :
-                          "bg-yellow-100 text-yellow-800"
-                        }
-                      >
+                      <Badge variant={
+                        payroll.status === "paid" ? "default" : 
+                        payroll.status === "approved" ? "secondary" : "outline"
+                      }>
                         {payroll.status}
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex gap-2">
-                        {payroll.status === 'pending' && (
-                          <Button
-                            size="sm"
-                            onClick={() => updatePayrollStatus(payroll.id, 'approved')}
-                          >
-                            Approve
-                          </Button>
-                        )}
-                        {payroll.status === 'approved' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => updatePayrollStatus(payroll.id, 'paid')}
-                          >
-                            Mark Paid
-                          </Button>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(payroll)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(payroll.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
