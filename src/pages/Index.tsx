@@ -10,58 +10,100 @@ import { Roster } from "@/components/Roster";
 import { PayrollComponent } from "@/components/Payroll";
 import { BankBalance } from "@/components/BankBalance";
 import { Reports } from "@/components/Reports";
-import { Button } from "@/components/ui/button";
-import { User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { UserMenu } from "@/components/UserMenu";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const { hasPermission } = useAuth();
 
   const renderActiveComponent = () => {
     switch (activeTab) {
       case "dashboard":
-        return <Dashboard />;
+        return (
+          <ProtectedRoute requiredPermission="dashboard_view">
+            <Dashboard />
+          </ProtectedRoute>
+        );
       case "employees":
-        return <EmployeeManagement />;
+        return (
+          <ProtectedRoute requiredPermission="employees_view">
+            <EmployeeManagement />
+          </ProtectedRoute>
+        );
       case "clients":
-        return <ClientManagement />;
+        return (
+          <ProtectedRoute requiredPermission="clients_view">
+            <ClientManagement />
+          </ProtectedRoute>
+        );
       case "projects":
-        return <ProjectManagement />;
+        return (
+          <ProtectedRoute requiredPermission="projects_view">
+            <ProjectManagement />
+          </ProtectedRoute>
+        );
       case "working-hours":
-        return <WorkingHours />;
+        return (
+          <ProtectedRoute requiredPermission="working_hours_view">
+            <WorkingHours />
+          </ProtectedRoute>
+        );
       case "roster":
-        return <Roster />;
+        return (
+          <ProtectedRoute requiredPermission="roster_view">
+            <Roster />
+          </ProtectedRoute>
+        );
       case "payroll":
-        return <PayrollComponent />;
+        return (
+          <ProtectedRoute requiredPermission="payroll_view">
+            <PayrollComponent />
+          </ProtectedRoute>
+        );
       case "bank-balance":
-        return <BankBalance />;
+        return (
+          <ProtectedRoute requiredPermission="bank_balance_view">
+            <BankBalance />
+          </ProtectedRoute>
+        );
       case "reports":
-        return <Reports />;
+        return (
+          <ProtectedRoute requiredPermission="reports_view">
+            <Reports />
+          </ProtectedRoute>
+        );
       default:
-        return <Dashboard />;
+        return (
+          <ProtectedRoute requiredPermission="dashboard_view">
+            <Dashboard />
+          </ProtectedRoute>
+        );
     }
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white shadow-sm border-b px-6 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Schedule & Payroll Manager</h1>
-            <Link to="/employee">
-              <Button variant="outline" className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Employee Portal
-              </Button>
-            </Link>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto p-6">
-          {renderActiveComponent()}
-        </main>
+    <ProtectedRoute>
+      <div className="flex h-screen bg-gray-100">
+        <Sidebar 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab}
+          hasPermission={hasPermission}
+        />
+        <div className="flex-1 flex flex-col overflow-hidden ml-64">
+          <header className="bg-white shadow-sm border-b px-6 py-4">
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold text-gray-900">Schedule & Payroll Manager</h1>
+              <UserMenu />
+            </div>
+          </header>
+          <main className="flex-1 overflow-auto p-6">
+            {renderActiveComponent()}
+          </main>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 };
 

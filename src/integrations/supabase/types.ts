@@ -195,6 +195,39 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          is_active: boolean | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          is_active?: boolean | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           budget: number | null
@@ -241,6 +274,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      role_permissions: {
+        Row: {
+          id: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          id?: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          id?: string
+          permission?: Database["public"]["Enums"]["app_permission"]
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
       }
       working_hours: {
         Row: {
@@ -311,10 +362,46 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      has_permission: {
+        Args: {
+          user_id: string
+          required_permission: Database["public"]["Enums"]["app_permission"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_permission:
+        | "dashboard_view"
+        | "employees_view"
+        | "employees_manage"
+        | "clients_view"
+        | "clients_manage"
+        | "projects_view"
+        | "projects_manage"
+        | "working_hours_view"
+        | "working_hours_manage"
+        | "working_hours_approve"
+        | "roster_view"
+        | "roster_manage"
+        | "payroll_view"
+        | "payroll_manage"
+        | "payroll_process"
+        | "bank_balance_view"
+        | "bank_balance_manage"
+        | "reports_view"
+        | "reports_generate"
+        | "notifications_view"
+      user_role:
+        | "admin"
+        | "employee"
+        | "accountant"
+        | "operation"
+        | "sales_manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -429,6 +516,36 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_permission: [
+        "dashboard_view",
+        "employees_view",
+        "employees_manage",
+        "clients_view",
+        "clients_manage",
+        "projects_view",
+        "projects_manage",
+        "working_hours_view",
+        "working_hours_manage",
+        "working_hours_approve",
+        "roster_view",
+        "roster_manage",
+        "payroll_view",
+        "payroll_manage",
+        "payroll_process",
+        "bank_balance_view",
+        "bank_balance_manage",
+        "reports_view",
+        "reports_generate",
+        "notifications_view",
+      ],
+      user_role: [
+        "admin",
+        "employee",
+        "accountant",
+        "operation",
+        "sales_manager",
+      ],
+    },
   },
 } as const

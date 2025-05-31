@@ -12,30 +12,83 @@ import {
   Wallet,
   Bell,
   DollarSign,
-  ChevronDown,
   Menu
 } from "lucide-react";
 
 interface SidebarProps {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
+  onTabChange: (tab: string) => void;
+  hasPermission: (permission: string) => boolean;
 }
 
-export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
+export const Sidebar = ({ activeTab, onTabChange, hasPermission }: SidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "employees", label: "Employees", icon: Users },
-    { id: "clients", label: "Clients", icon: Building2 },
-    { id: "projects", label: "Projects", icon: FolderOpen },
-    { id: "hours", label: "Working Hours", icon: Clock },
-    { id: "roster", label: "Roster", icon: Calendar },
-    { id: "payroll", label: "Payroll", icon: DollarSign },
-    { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "reports", label: "Reports", icon: FileText },
-    { id: "bank", label: "Bank Balance", icon: Wallet },
+    { 
+      id: "dashboard", 
+      label: "Dashboard", 
+      icon: LayoutDashboard,
+      permission: "dashboard_view"
+    },
+    { 
+      id: "employees", 
+      label: "Employees", 
+      icon: Users,
+      permission: "employees_view"
+    },
+    { 
+      id: "clients", 
+      label: "Clients", 
+      icon: Building2,
+      permission: "clients_view"
+    },
+    { 
+      id: "projects", 
+      label: "Projects", 
+      icon: FolderOpen,
+      permission: "projects_view"
+    },
+    { 
+      id: "working-hours", 
+      label: "Working Hours", 
+      icon: Clock,
+      permission: "working_hours_view"
+    },
+    { 
+      id: "roster", 
+      label: "Roster", 
+      icon: Calendar,
+      permission: "roster_view"
+    },
+    { 
+      id: "payroll", 
+      label: "Payroll", 
+      icon: DollarSign,
+      permission: "payroll_view"
+    },
+    { 
+      id: "notifications", 
+      label: "Notifications", 
+      icon: Bell,
+      permission: "notifications_view"
+    },
+    { 
+      id: "reports", 
+      label: "Reports", 
+      icon: FileText,
+      permission: "reports_view"
+    },
+    { 
+      id: "bank-balance", 
+      label: "Bank Balance", 
+      icon: Wallet,
+      permission: "bank_balance_view"
+    },
   ];
+
+  // Filter menu items based on user permissions
+  const visibleMenuItems = menuItems.filter(item => hasPermission(item.permission));
 
   return (
     <div className={cn(
@@ -58,14 +111,14 @@ export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
       
       <nav className="mt-8">
         <ul className="space-y-2 px-2">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             
             return (
               <li key={item.id}>
                 <button
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => onTabChange(item.id)}
                   className={cn(
                     "w-full flex items-center px-3 py-2 text-left rounded-lg transition-colors",
                     isActive
