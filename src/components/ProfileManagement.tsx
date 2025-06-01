@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Profile } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
@@ -110,14 +110,24 @@ export const ProfileManagement = () => {
     profile.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const activeProfiles = filteredProfiles.filter(profile => profile.is_active);
+  const inactiveProfiles = filteredProfiles.filter(profile => !profile.is_active);
+
   if (loading && profiles.length === 0) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Profile Management</h1>
+        <div className="flex items-center gap-3">
+          <Users className="h-8 w-8 text-blue-600" />
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Team Profiles</h1>
+            <p className="text-gray-600">Manage your team members and their roles</p>
+          </div>
+        </div>
         <Button 
           className="flex items-center gap-2" 
           onClick={() => {
@@ -126,18 +136,61 @@ export const ProfileManagement = () => {
           }}
         >
           <Plus className="h-4 w-4" />
-          Edit Profile
+          Add Profile
         </Button>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Profiles
+            </CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{profiles.length}</div>
+            <p className="text-xs text-muted-foreground">All team members</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Active Profiles
+            </CardTitle>
+            <Users className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{activeProfiles.length}</div>
+            <p className="text-xs text-muted-foreground">Currently active</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Inactive Profiles
+            </CardTitle>
+            <Users className="h-4 w-4 text-gray-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-600">{inactiveProfiles.length}</div>
+            <p className="text-xs text-muted-foreground">Deactivated members</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filter */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Profiles ({profiles.length})</CardTitle>
+            <CardTitle>All Profiles ({filteredProfiles.length})</CardTitle>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder="Search profiles..."
+                placeholder="Search by name or role..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -154,6 +207,7 @@ export const ProfileManagement = () => {
         </CardContent>
       </Card>
 
+      {/* Profile Form Dialog */}
       <ProfileForm
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
