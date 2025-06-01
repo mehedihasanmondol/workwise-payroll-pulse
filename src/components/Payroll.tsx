@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export const PayrollComponent = () => {
         .order('full_name');
 
       if (error) throw error;
-      setProfiles((data || []) as Profile[]);
+      setProfiles(data as Profile[]);
     } catch (error) {
       console.error('Error fetching profiles:', error);
     }
@@ -63,7 +64,7 @@ export const PayrollComponent = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPayrolls((data || []) as Payroll[]);
+      setPayrolls(data as Payroll[]);
     } catch (error) {
       console.error('Error fetching payrolls:', error);
       toast({

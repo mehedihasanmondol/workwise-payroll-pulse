@@ -17,8 +17,8 @@ export type Database = {
           created_at: string
           date: string
           description: string
-          employee_id: string | null
           id: string
+          profile_id: string | null
           project_id: string | null
           type: string
           updated_at: string
@@ -30,8 +30,8 @@ export type Database = {
           created_at?: string
           date?: string
           description: string
-          employee_id?: string | null
           id?: string
+          profile_id?: string | null
           project_id?: string | null
           type: string
           updated_at?: string
@@ -43,8 +43,8 @@ export type Database = {
           created_at?: string
           date?: string
           description?: string
-          employee_id?: string | null
           id?: string
+          profile_id?: string | null
           project_id?: string | null
           type?: string
           updated_at?: string
@@ -58,10 +58,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "bank_transactions_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: "bank_transactions_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
-            referencedRelation: "employees"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -146,13 +146,13 @@ export type Database = {
         Row: {
           created_at: string
           deductions: number
-          employee_id: string
           gross_pay: number
           hourly_rate: number
           id: string
           net_pay: number
           pay_period_end: string
           pay_period_start: string
+          profile_id: string
           status: string
           total_hours: number
           updated_at: string
@@ -160,13 +160,13 @@ export type Database = {
         Insert: {
           created_at?: string
           deductions?: number
-          employee_id: string
           gross_pay?: number
           hourly_rate?: number
           id?: string
           net_pay?: number
           pay_period_end: string
           pay_period_start: string
+          profile_id: string
           status?: string
           total_hours?: number
           updated_at?: string
@@ -174,23 +174,23 @@ export type Database = {
         Update: {
           created_at?: string
           deductions?: number
-          employee_id?: string
           gross_pay?: number
           hourly_rate?: number
           id?: string
           net_pay?: number
           pay_period_end?: string
           pay_period_start?: string
+          profile_id?: string
           status?: string
           total_hours?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "payroll_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: "payroll_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
-            referencedRelation: "employees"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -199,7 +199,6 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
-          email: string | null
           full_name: string | null
           id: string
           is_active: boolean | null
@@ -209,7 +208,6 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
-          email?: string | null
           full_name?: string | null
           id: string
           is_active?: boolean | null
@@ -219,7 +217,6 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string | null
-          email?: string | null
           full_name?: string | null
           id?: string
           is_active?: boolean | null
@@ -298,9 +295,9 @@ export type Database = {
           client_id: string
           created_at: string
           date: string
-          employee_id: string
           end_time: string
           id: string
+          profile_id: string
           project_id: string
           start_time: string
           status: string
@@ -311,9 +308,9 @@ export type Database = {
           client_id: string
           created_at?: string
           date: string
-          employee_id: string
           end_time: string
           id?: string
+          profile_id: string
           project_id: string
           start_time: string
           status?: string
@@ -324,9 +321,9 @@ export type Database = {
           client_id?: string
           created_at?: string
           date?: string
-          employee_id?: string
           end_time?: string
           id?: string
+          profile_id?: string
           project_id?: string
           start_time?: string
           status?: string
@@ -342,10 +339,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "working_hours_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: "working_hours_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
-            referencedRelation: "employees"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {

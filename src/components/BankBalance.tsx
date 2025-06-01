@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ export const BankBalance = () => {
         .order('date', { ascending: false });
 
       if (error) throw error;
-      setTransactions((data || []) as BankTransaction[]);
+      setTransactions(data as BankTransaction[]);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast({
@@ -73,7 +74,7 @@ export const BankBalance = () => {
         .order('company');
 
       if (error) throw error;
-      setClients((data || []) as Client[]);
+      setClients(data as Client[]);
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
@@ -88,7 +89,7 @@ export const BankBalance = () => {
         .order('name');
 
       if (error) throw error;
-      setProjects((data || []) as Project[]);
+      setProjects(data as Project[]);
     } catch (error) {
       console.error('Error fetching projects:', error);
     }
@@ -103,7 +104,7 @@ export const BankBalance = () => {
         .order('full_name');
 
       if (error) throw error;
-      setProfiles((data || []) as Profile[]);
+      setProfiles(data as Profile[]);
     } catch (error) {
       console.error('Error fetching profiles:', error);
     }

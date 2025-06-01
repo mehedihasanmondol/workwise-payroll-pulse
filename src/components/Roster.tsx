@@ -2,20 +2,19 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Plus, Search, Clock } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Calendar as CalendarIcon, Clock, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { WorkingHour, Profile, Client, Project } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
 
 export const Roster = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterProfile, setFilterProfile] = useState("all");
-  const [filterDate, setFilterDate] = useState("");
-  
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -30,20 +29,20 @@ export const Roster = () => {
     project_id: "",
     date: "",
     start_time: "",
-    end_time: ""
+    end_time: "",
+    status: "pending"
   });
 
   useEffect(() => {
-    fetchRosterData();
+    fetchWorkingHours();
     fetchProfiles();
     fetchClients();
     fetchProjects();
-  }, []);
+  }, [selectedDate]);
 
-  const fetchRosterData = async () => {
+  const fetchWorkingHours = async () => {
     try {
-      // Get upcoming/current working hours for roster view
-      const today = new Date().toISOString().split('T')[0];
+      const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
       
       const { data, error } = await supabase
         .from('working_hours')
@@ -53,14 +52,13 @@ export const Roster = () => {
           clients (id, company),
           projects (id, name)
         `)
-        .gte('date', today)
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true });
+        .eq('date', dateStr)
+        .order('start_time');
 
       if (error) throw error;
-      setWorkingHours((data || []) as WorkingHour[]);
+      setWorkingHours(data as WorkingHour[]);
     } catch (error) {
-      console.error('Error fetching roster data:', error);
+      console.error('Error fetching working hours:', error);
       toast({
         title: "Error",
         description: "Failed to fetch roster data",
@@ -80,7 +78,7 @@ export const Roster = () => {
         .order('full_name');
 
       if (error) throw error;
-      setProfiles((data || []) as Profile[]);
+      setProfiles(data as Profile[]);
     } catch (error) {
       console.error('Error fetching profiles:', error);
     }
@@ -95,7 +93,7 @@ export const Roster = () => {
         .order('company');
 
       if (error) throw error;
-      setClients((data || []) as Client[]);
+      setClients(data as Client[]);
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
@@ -110,17 +108,21 @@ export const Roster = () => {
         .order('name');
 
       if (error) throw error;
-      setProjects((data || []) as Project[]);
+      setProjects(data as Project[]);
     } catch (error) {
       console.error('Error fetching projects:', error);
     }
   };
 
   const calculateTotalHours = (startTime: string, endTime: string) => {
-    const start = new Date(`1970-01-01T${startTime}:00`);
-    const end = new Date(`1970-01-01T${endTime}:00`);
+    if (!startTime || !endTime) return 0;
+    
+    const start = new Date(`2000-01-01T${startTime}`);
+    const end = new Date(`2000-01-01T${endTime}`);
     const diffMs = end.getTime() - start.getTime();
-    return Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    return Math.max(0, diffHours);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,21 +136,28 @@ export const Roster = () => {
         .from('working_hours')
         .insert([{
           ...formData,
-          total_hours: totalHours,
-          status: 'pending'
+          total_hours: totalHours
         }]);
 
       if (error) throw error;
       toast({ title: "Success", description: "Roster entry added successfully" });
       
       setIsDialogOpen(false);
-      setFormData({ profile_id: "", client_id: "", project_id: "", date: "", start_time: "", end_time: "" });
-      fetchRosterData();
+      setFormData({
+        profile_id: "",
+        client_id: "",
+        project_id: "",
+        date: "",
+        start_time: "",
+        end_time: "",
+        status: "pending"
+      });
+      fetchWorkingHours();
     } catch (error) {
       console.error('Error saving roster entry:', error);
       toast({
         title: "Error",
-        description: "Failed to add roster entry",
+        description: "Failed to save roster entry",
         variant: "destructive"
       });
     } finally {
@@ -156,25 +165,13 @@ export const Roster = () => {
     }
   };
 
-  const filteredHours = workingHours.filter(hour => {
-    const matchesSearch = hour.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         hour.clients?.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         hour.projects?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesProfile = filterProfile === "all" || hour.profile_id === filterProfile;
-    const matchesDate = !filterDate || hour.date === filterDate;
-    
-    return matchesSearch && matchesProfile && matchesDate;
-  });
+  const getProfileHours = (profileId: string) => {
+    return workingHours.filter(wh => wh.profile_id === profileId);
+  };
 
-  // Group by date for better roster view
-  const groupedByDate = filteredHours.reduce((acc, hour) => {
-    const date = hour.date;
-    if (!acc[date]) {
-      acc[date] = [];
-    }
-    acc[date].push(hour);
-    return acc;
-  }, {} as Record<string, WorkingHour[]>);
+  const getTotalHoursForDay = () => {
+    return workingHours.reduce((total, wh) => total + wh.total_hours, 0);
+  };
 
   if (loading && workingHours.length === 0) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
@@ -183,19 +180,27 @@ export const Roster = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Roster</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Roster Management</h1>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2" onClick={() => {
-              setFormData({ profile_id: "", client_id: "", project_id: "", date: "", start_time: "", end_time: "" });
+              setFormData({
+                profile_id: "",
+                client_id: "",
+                project_id: "",
+                date: selectedDate ? selectedDate.toISOString().split('T')[0] : "",
+                start_time: "",
+                end_time: "",
+                status: "pending"
+              });
             }}>
               <Plus className="h-4 w-4" />
-              Schedule Entry
+              Add Roster Entry
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Schedule New Entry</DialogTitle>
+              <DialogTitle>Add New Roster Entry</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -213,6 +218,7 @@ export const Roster = () => {
                   </SelectContent>
                 </Select>
               </div>
+              
               <div>
                 <Label htmlFor="client_id">Client</Label>
                 <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value })}>
@@ -228,6 +234,7 @@ export const Roster = () => {
                   </SelectContent>
                 </Select>
               </div>
+
               <div>
                 <Label htmlFor="project_id">Project</Label>
                 <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
@@ -243,6 +250,7 @@ export const Roster = () => {
                   </SelectContent>
                 </Select>
               </div>
+
               <div>
                 <Label htmlFor="date">Date</Label>
                 <Input
@@ -253,6 +261,7 @@ export const Roster = () => {
                   required
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="start_time">Start Time</Label>
@@ -275,139 +284,89 @@ export const Roster = () => {
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : "Schedule Entry"}
+
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? "Saving..." : "Add Roster Entry"}
               </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Scheduled Entries</CardTitle>
-            <Calendar className="h-5 w-5 text-blue-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Select Date
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{workingHours.length}</div>
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              className="rounded-md border"
+            />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Active Profiles</CardTitle>
-            <Clock className="h-5 w-5 text-green-600" />
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Daily Schedule - {selectedDate?.toDateString()}
+              </CardTitle>
+              <Badge variant="outline" className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {getTotalHoursForDay().toFixed(1)}h total
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{new Set(workingHours.map(h => h.profile_id)).size}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Hours</CardTitle>
-            <Clock className="h-5 w-5 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{workingHours.reduce((sum, h) => sum + h.total_hours, 0).toFixed(1)}h</div>
+            <div className="space-y-4">
+              {profiles.map((profile) => {
+                const profileHours = getProfileHours(profile.id);
+                const totalHours = profileHours.reduce((sum, wh) => sum + wh.total_hours, 0);
+                
+                return (
+                  <div key={profile.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium">{profile.full_name}</h4>
+                        <p className="text-sm text-gray-600">{profile.role}</p>
+                      </div>
+                      <Badge variant="outline">{totalHours.toFixed(1)}h</Badge>
+                    </div>
+                    
+                    {profileHours.length > 0 ? (
+                      <div className="space-y-2">
+                        {profileHours.map((hour) => (
+                          <div key={hour.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{hour.start_time} - {hour.end_time}</span>
+                              <span className="text-sm text-gray-600">({hour.total_hours}h)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-600">{hour.projects?.name}</span>
+                              <Badge variant={hour.status === "approved" ? "default" : hour.status === "pending" ? "secondary" : "outline"} className="text-xs">
+                                {hour.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">No scheduled hours</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between mb-4">
-            <CardTitle>Roster Schedule</CardTitle>
-            <div className="flex items-center gap-4">
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search roster..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={filterProfile} onValueChange={setFilterProfile}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Profile" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Profiles</SelectItem>
-                  {profiles.map((profile) => (
-                    <SelectItem key={profile.id} value={profile.id}>
-                      {profile.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="w-40"
-                placeholder="Filter by date"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {Object.entries(groupedByDate).map(([date, hours]) => (
-              <div key={date} className="border rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                  {new Date(date).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-2 px-3 font-medium text-gray-600">Time</th>
-                        <th className="text-left py-2 px-3 font-medium text-gray-600">Profile</th>
-                        <th className="text-left py-2 px-3 font-medium text-gray-600">Client</th>
-                        <th className="text-left py-2 px-3 font-medium text-gray-600">Project</th>
-                        <th className="text-left py-2 px-3 font-medium text-gray-600">Duration</th>
-                        <th className="text-left py-2 px-3 font-medium text-gray-600">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hours.map((hour) => (
-                        <tr key={hour.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-2 px-3 text-gray-900">{hour.start_time} - {hour.end_time}</td>
-                          <td className="py-2 px-3 font-medium text-gray-900">{hour.profiles?.full_name}</td>
-                          <td className="py-2 px-3 text-gray-600">{hour.clients?.company}</td>
-                          <td className="py-2 px-3 text-gray-600">{hour.projects?.name}</td>
-                          <td className="py-2 px-3 text-gray-600">{hour.total_hours}h</td>
-                          <td className="py-2 px-3">
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              hour.status === "approved" ? "bg-green-100 text-green-800" :
-                              hour.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                              "bg-red-100 text-red-800"
-                            }`}>
-                              {hour.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
-            {Object.keys(groupedByDate).length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No roster entries found for the selected filters.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

@@ -64,7 +64,7 @@ export const Reports = () => {
         .lte('date', dateRange.end);
 
       if (hoursError) throw hoursError;
-      setWorkingHours((hoursData || []) as WorkingHour[]);
+      setWorkingHours(hoursData as WorkingHour[]);
 
       // Fetch profiles
       const { data: profilesData, error: profilesError } = await supabase
@@ -73,7 +73,7 @@ export const Reports = () => {
         .eq('is_active', true);
 
       if (profilesError) throw profilesError;
-      setProfiles((profilesData || []) as Profile[]);
+      setProfiles(profilesData as Profile[]);
 
       // Fetch clients
       const { data: clientsData, error: clientsError } = await supabase
@@ -81,7 +81,7 @@ export const Reports = () => {
         .select('*');
 
       if (clientsError) throw clientsError;
-      setClients((clientsData || []) as Client[]);
+      setClients(clientsData as Client[]);
 
       // Fetch projects
       const { data: projectsData, error: projectsError } = await supabase
@@ -89,7 +89,7 @@ export const Reports = () => {
         .select('*');
 
       if (projectsError) throw projectsError;
-      setProjects((projectsData || []) as Project[]);
+      setProjects(projectsData as Project[]);
 
       // Fetch bank transactions
       const { data: transactionsData, error: transactionsError } = await supabase
@@ -99,7 +99,7 @@ export const Reports = () => {
         .lte('date', dateRange.end);
 
       if (transactionsError) throw transactionsError;
-      setTransactions((transactionsData || []) as BankTransaction[]);
+      setTransactions(transactionsData as BankTransaction[]);
 
     } catch (error) {
       console.error('Error fetching data:', error);
