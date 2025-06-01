@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { Plus, Calendar as CalendarIcon, Clock, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { WorkingHour, Profile, Client, Project } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
+import { ProfileSelector } from "@/components/common/ProfileSelector";
 
 export const Roster = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -198,26 +198,20 @@ export const Roster = () => {
               Add Roster Entry
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Roster Entry</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="profile_id">Profile</Label>
-                <Select value={formData.profile_id} onValueChange={(value) => setFormData({ ...formData, profile_id: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select profile" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {profiles.map((profile) => (
-                      <SelectItem key={profile.id} value={profile.id}>
-                        {profile.full_name} - {profile.role}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Enhanced Profile Selection */}
+              <ProfileSelector
+                profiles={profiles}
+                selectedProfileId={formData.profile_id}
+                onProfileSelect={(profileId) => setFormData({ ...formData, profile_id: profileId })}
+                label="Select Profile"
+                placeholder="Choose a team member"
+                showRoleFilter={true}
+              />
               
               <div>
                 <Label htmlFor="client_id">Client</Label>
