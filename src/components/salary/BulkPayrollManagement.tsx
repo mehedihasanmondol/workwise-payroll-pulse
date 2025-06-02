@@ -10,6 +10,7 @@ import { Plus, Zap, Users, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BulkPayroll, Profile } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface BulkPayrollManagementProps {
   bulkPayrolls: BulkPayroll[];
@@ -53,7 +54,8 @@ export const BulkPayrollManagement = ({ bulkPayrolls, profiles, onRefresh }: Bul
           pay_period_start: formData.pay_period_start,
           pay_period_end: formData.pay_period_end,
           created_by: 'current-user-id', // Replace with actual user ID
-          total_records: selectedProfiles.length
+          total_records: selectedProfiles.length,
+          status: 'draft' as const
         }])
         .select()
         .single();
@@ -63,7 +65,8 @@ export const BulkPayrollManagement = ({ bulkPayrolls, profiles, onRefresh }: Bul
       // Create bulk payroll items
       const bulkItems = selectedProfiles.map(profileId => ({
         bulk_payroll_id: bulkPayroll.id,
-        profile_id: profileId
+        profile_id: profileId,
+        status: 'pending' as const
       }));
 
       const { error: itemsError } = await supabase
@@ -95,7 +98,7 @@ export const BulkPayrollManagement = ({ bulkPayrolls, profiles, onRefresh }: Bul
       // Update status to processing
       await supabase
         .from('bulk_payroll')
-        .update({ status: 'processing' })
+        .update({ status: 'processing' as const })
         .eq('id', bulkPayrollId);
 
       // Get bulk payroll items
@@ -130,7 +133,7 @@ export const BulkPayrollManagement = ({ bulkPayrolls, profiles, onRefresh }: Bul
               gross_pay: grossPay,
               deductions: deductions,
               net_pay: netPay,
-              status: 'pending'
+              status: 'pending' as const
             }])
             .select()
             .single();
@@ -141,18 +144,18 @@ export const BulkPayrollManagement = ({ bulkPayrolls, profiles, onRefresh }: Bul
           await supabase
             .from('bulk_payroll_items')
             .update({ 
-              status: 'processed',
+              status: 'processed' as const,
               payroll_id: payroll.id 
             })
             .eq('id', item.id);
 
           processedCount++;
-        } catch (itemError) {
+        } catch (itemError: any) {
           console.error('Error processing item:', itemError);
           await supabase
             .from('bulk_payroll_items')
             .update({ 
-              status: 'failed',
+              status: 'failed' as const,
               error_message: itemError.message 
             })
             .eq('id', item.id);
@@ -163,7 +166,7 @@ export const BulkPayrollManagement = ({ bulkPayrolls, profiles, onRefresh }: Bul
       await supabase
         .from('bulk_payroll')
         .update({ 
-          status: 'completed',
+          status: 'completed' as const,
           processed_records: processedCount 
         })
         .eq('id', bulkPayrollId);
@@ -250,21 +253,22 @@ export const BulkPayrollManagement = ({ bulkPayrolls, profiles, onRefresh }: Bul
                   <div className="border rounded-md p-4 max-h-48 overflow-y-auto">
                     <div className="space-y-2">
                       {profiles.map((profile) => (
-                        <label key={profile.id} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
+                        <div key={profile.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={profile.id}
                             checked={selectedProfiles.includes(profile.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
+                            onCheckedChange={(checked) => {
+                              if (checked) {
                                 setSelectedProfiles([...selectedProfiles, profile.id]);
                               } else {
                                 setSelectedProfiles(selectedProfiles.filter(id => id !== profile.id));
                               }
                             }}
-                            className="rounded"
                           />
-                          <span className="text-sm">{profile.full_name}</span>
-                        </label>
+                          <Label htmlFor={profile.id} className="text-sm cursor-pointer">
+                            {profile.full_name}
+                          </Label>
+                        </div>
                       ))}
                     </div>
                   </div>
