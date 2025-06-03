@@ -44,7 +44,7 @@ export const EditWorkingHoursDialog = ({
     sign_out_time: "",
     hourly_rate: 0,
     notes: "",
-    status: "pending" as const
+    status: "pending"
   });
 
   useEffect(() => {
@@ -266,7 +266,7 @@ export const EditWorkingHoursDialog = ({
 
             <div>
               <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as 'pending' | 'approved' | 'rejected' })}>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
