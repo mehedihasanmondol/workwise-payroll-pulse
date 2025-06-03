@@ -437,5 +437,3 @@ export const WorkingHoursComponent = ({ workingHours, profiles, clients, project
     </div>
   );
 };
-
-export { WorkingHoursComponent as WorkingHours };
