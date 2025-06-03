@@ -13,7 +13,7 @@ import { Roster, Profile, Client, Project } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
 import { MultipleProfileSelector } from "@/components/common/MultipleProfileSelector";
 
-interface RosterProps {
+interface RosterComponentProps {
   rosters: Roster[];
   profiles: Profile[];
   clients: Client[];
@@ -21,7 +21,7 @@ interface RosterProps {
   onRefresh: () => void;
 }
 
-export const RosterComponent = ({ rosters, profiles, clients, projects, onRefresh }: RosterProps) => {
+export const RosterComponent = ({ rosters, profiles, clients, projects, onRefresh }: RosterComponentProps) => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -262,7 +262,7 @@ export const RosterComponent = ({ rosters, profiles, clients, projects, onRefres
                   <div>
                     <MultipleProfileSelector
                       profiles={profiles}
-                      selectedProfiles={selectedProfiles}
+                      selectedProfileIds={selectedProfiles}
                       onProfileSelect={setSelectedProfiles}
                       label="Select Team Members *"
                     />
@@ -367,3 +367,5 @@ export const RosterComponent = ({ rosters, profiles, clients, projects, onRefres
     </Card>
   );
 };
+
+export { RosterComponent as Roster };
