@@ -11,8 +11,8 @@ interface PayrollDetailsDialogProps {
   payroll: Payroll | null;
   isOpen: boolean;
   onClose: () => void;
-  profile?: Profile;
-  bankAccount?: BankAccount;
+  profile?: Profile | null;
+  bankAccount?: BankAccount | null;
 }
 
 export const PayrollDetailsDialog = ({ 
@@ -287,7 +287,7 @@ This is an automatically generated payroll statement.
           </Card>
         </div>
 
-        <style jsx>{`
+        <style>{`
           @media print {
             .dialog-content {
               box-shadow: none !important;

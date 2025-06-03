@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,14 +15,20 @@ import { EditWorkingHoursDialog } from "@/components/EditWorkingHoursDialog";
 import { WorkingHoursActions } from "@/components/working-hours/WorkingHoursActions";
 
 interface WorkingHoursProps {
-  workingHours: WorkingHour[];
-  profiles: Profile[];
-  clients: Client[];
-  projects: Project[];
-  onRefresh: () => void;
+  workingHours?: WorkingHour[];
+  profiles?: Profile[];
+  clients?: Client[];
+  projects?: Project[];
+  onRefresh?: () => void;
 }
 
-export const WorkingHoursComponent = ({ workingHours, profiles, clients, projects, onRefresh }: WorkingHoursProps) => {
+export const WorkingHoursComponent = ({ 
+  workingHours = [], 
+  profiles = [], 
+  clients = [], 
+  projects = [], 
+  onRefresh = () => {} 
+}: WorkingHoursProps) => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -119,9 +124,12 @@ export const WorkingHoursComponent = ({ workingHours, profiles, clients, project
     }
   };
 
-  const handleEdit = (workingHour: WorkingHour) => {
-    setSelectedWorkingHour(workingHour);
-    setIsEditDialogOpen(true);
+  const handleEdit = (id: string) => {
+    const workingHour = workingHours.find(wh => wh.id === id);
+    if (workingHour) {
+      setSelectedWorkingHour(workingHour);
+      setIsEditDialogOpen(true);
+    }
   };
 
   const filteredWorkingHours = workingHours.filter(wh => {
@@ -437,3 +445,5 @@ export const WorkingHoursComponent = ({ workingHours, profiles, clients, project
     </div>
   );
 };
+
+export default WorkingHoursComponent;
