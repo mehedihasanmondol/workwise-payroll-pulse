@@ -40,6 +40,8 @@ export const WorkingHoursComponent = () => {
     status: "pending"
   });
 
+  const selectedProfiles = [];
+
   useEffect(() => {
     fetchWorkingHours();
     fetchProfiles();
@@ -197,6 +199,62 @@ export const WorkingHoursComponent = () => {
       toast({
         title: "Error",
         description: "Failed to save working hours",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createMultipleWorkingHours = async () => {
+    try {
+      setLoading(true);
+      
+      const workingHoursToCreate = selectedProfiles.map((profileId) => ({
+        total_hours: parseFloat(formData.total_hours),
+        actual_hours: parseFloat(formData.actual_hours || formData.total_hours),
+        overtime_hours: parseFloat(formData.overtime_hours || '0'),
+        payable_amount: parseFloat(formData.payable_amount),
+        sign_in_time: formData.sign_in_time,
+        sign_out_time: formData.sign_out_time,
+        profile_id: profileId,
+        client_id: formData.client_id,
+        project_id: formData.project_id,
+        date: formData.date,
+        start_time: formData.start_time,
+        end_time: formData.end_time,
+        hourly_rate: parseFloat(formData.hourly_rate),
+        notes: formData.notes,
+        status: 'pending' as const
+      }));
+
+      const { error } = await supabase
+        .from('working_hours')
+        .insert(workingHoursToCreate);
+
+      if (error) throw error;
+      toast({ title: "Success", description: "Multiple working hours logged successfully" });
+      
+      setIsDialogOpen(false);
+      setFormData({
+        profile_id: "",
+        client_id: "",
+        project_id: "",
+        date: new Date().toISOString().split('T')[0], // Reset to today's date
+        start_time: "",
+        end_time: "",
+        sign_in_time: "",
+        sign_out_time: "",
+        hourly_rate: 0,
+        notes: "",
+        status: "pending"
+      });
+      fetchWorkingHours();
+    } catch (error: any) {
+      console.error('Error creating multiple working hours:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create multiple working hours",
         variant: "destructive"
       });
     } finally {
@@ -601,3 +659,5 @@ export const WorkingHoursComponent = () => {
     </div>
   );
 };
+
+export default WorkingHoursComponent;

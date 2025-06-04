@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, DollarSign, AlertTriangle, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { Calculator, DollarSign, RefreshCw, ChevronDown, ChevronUp, Users, Clock } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { Profile, WorkingHour, BankAccount, Payroll } from "@/types/database";
@@ -24,8 +23,6 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
     start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [selectedBankAccount, setSelectedBankAccount] = useState("");
   const [loading, setLoading] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
   const [step, setStep] = useState(1);
@@ -38,7 +35,6 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchBankAccounts();
     fetchExistingPayrolls();
   }, []);
 
@@ -142,24 +138,6 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
     }
   };
 
-  const fetchBankAccounts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('bank_accounts')
-        .select('*')
-        .is('profile_id', null)
-        .order('is_primary', { ascending: false });
-
-      if (error) throw error;
-      setBankAccounts(data as BankAccount[]);
-      
-      const primary = data.find(acc => acc.is_primary);
-      if (primary) setSelectedBankAccount(primary.id);
-    } catch (error) {
-      console.error('Error fetching bank accounts:', error);
-    }
-  };
-
   const fetchExistingPayrolls = async () => {
     try {
       const { data, error } = await supabase
@@ -223,10 +201,12 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
         const overtimeHours = unpaidHours.reduce((sum, wh) => sum + (wh.overtime_hours || 0), 0);
         const regularHours = totalHours - overtimeHours;
         
-        // Use the working hours rate instead of profile rate
-        const workingHoursRate = unpaidHours.length > 0 ? unpaidHours[0].hourly_rate || 0 : profile.hourly_rate || 0;
-        const regularPay = regularHours * workingHoursRate;
-        const overtimePay = overtimeHours * workingHoursRate * 1.5;
+        // Calculate average hourly rate from working hours
+        const totalAmount = unpaidHours.reduce((sum, wh) => sum + (wh.total_hours * (wh.hourly_rate || 0)), 0);
+        const averageRate = totalHours > 0 ? totalAmount / totalHours : 0;
+        
+        const regularPay = regularHours * averageRate;
+        const overtimePay = overtimeHours * averageRate * 1.5;
         const grossPay = regularPay + overtimePay;
         
         const deductions = grossPay * 0.1;
@@ -238,7 +218,7 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
             totalHours,
             regularHours,
             overtimeHours,
-            hourlyRate: workingHoursRate,
+            hourlyRate: averageRate,
             regularPay,
             overtimePay,
             grossPay,
@@ -282,7 +262,7 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
           deductions: preview.deductions,
           net_pay: preview.netPay,
           status: 'pending' as const,
-          bank_account_id: selectedBankAccount || null
+          bank_account_id: null
         };
 
         payrollRecords.push(payrollData);
@@ -338,6 +318,8 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
   };
 
   const totalPreviewAmount = payrollPreview.reduce((sum, p) => sum + p.netPay, 0);
+  const totalHours = payrollPreview.reduce((sum, p) => sum + p.totalHours, 0);
+  const totalGrossPay = payrollPreview.reduce((sum, p) => sum + p.grossPay, 0);
 
   return (
     <div className="space-y-6">
@@ -345,7 +327,7 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5" />
-            Payroll Generation Wizard - Step {step} of 3
+            Payroll Generation Wizard - Step {step} of 2
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -395,23 +377,6 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
                           onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
                         />
                       </div>
-
-                      <div>
-                        <Label>Bank Account</Label>
-                        <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select bank account" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {bankAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.bank_name} - {account.account_number}
-                                {account.is_primary && ' (Primary)'}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
 
                     <Button 
@@ -457,24 +422,6 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
                     </div>
                   </div>
                 </div>
-
-                {overlappingPayrolls.length > 0 && (
-                  <div className="mt-4 p-4 border border-orange-200 bg-orange-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-orange-800 mb-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="font-medium">Overlapping Payroll Periods Detected</span>
-                    </div>
-                    <p className="text-sm text-orange-700">
-                      The following employees already have payroll records for overlapping periods:
-                    </p>
-                    <ul className="text-sm text-orange-700 mt-1">
-                      {overlappingPayrolls.map(profileId => {
-                        const profile = filteredProfiles.find(p => p.id === profileId);
-                        return <li key={profileId}>• {profile?.full_name}</li>;
-                      })}
-                    </ul>
-                  </div>
-                )}
               </div>
 
               <div className="flex justify-end">
@@ -482,7 +429,7 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
                   onClick={() => setStep(2)} 
                   disabled={selectedProfileIds.length === 0 || !dateRange.start || !dateRange.end || payrollPreview.length === 0 || overlappingPayrolls.length > 0}
                 >
-                  Next: Review Payroll ({payrollPreview.length} employees)
+                  Next: Review & Generate Payroll ({payrollPreview.length} employees)
                 </Button>
               </div>
             </div>
@@ -491,11 +438,47 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
           {step === 2 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Step 2: Review Payroll Calculations</h3>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-green-600">${totalPreviewAmount.toFixed(2)}</div>
-                  <div className="text-sm text-gray-600">Total Net Pay</div>
-                </div>
+                <h3 className="text-lg font-semibold">Step 2: Review Payroll & Generate</h3>
+              </div>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm text-gray-600">Total Employees</span>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-600">{payrollPreview.length}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Clock className="h-4 w-4 text-purple-600" />
+                      <span className="text-sm text-gray-600">Total Hours</span>
+                    </div>
+                    <div className="text-2xl font-bold text-purple-600">{totalHours.toFixed(1)}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <DollarSign className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm text-gray-600">Gross Pay</span>
+                    </div>
+                    <div className="text-2xl font-bold text-orange-600">${totalGrossPay.toFixed(2)}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <DollarSign className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-gray-600">Net Pay</span>
+                    </div>
+                    <div className="text-2xl font-bold text-green-600">${totalPreviewAmount.toFixed(2)}</div>
+                  </CardContent>
+                </Card>
               </div>
 
               {payrollPreview.length === 0 ? (
@@ -505,13 +488,13 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
+                  <div className="max-h-80 overflow-y-auto border rounded-lg">
                     <table className="w-full">
-                      <thead>
+                      <thead className="sticky top-0 bg-gray-50">
                         <tr className="border-b border-gray-200">
                           <th className="text-left py-3 px-4 font-medium text-gray-600">Employee</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-600">Hours</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-600">Rate</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-600">Avg Rate</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-600">Gross Pay</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-600">Deductions</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-600">Net Pay</th>
@@ -599,46 +582,10 @@ export const PayrollGenerationWizard = ({ profiles, workingHours, onRefresh }: P
                   Back: Edit Selection
                 </Button>
                 <Button 
-                  onClick={() => setStep(3)}
-                  disabled={payrollPreview.length === 0}
+                  onClick={generatePayroll}
+                  disabled={loading || payrollPreview.length === 0}
+                  className="bg-green-600 hover:bg-green-700"
                 >
-                  Next: Confirm & Generate
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold">Step 3: Confirm & Generate Payroll</h3>
-              
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Payroll Summary</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <div className="text-gray-600">Employees</div>
-                    <div className="font-bold">{payrollPreview.length}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600">Total Hours</div>
-                    <div className="font-bold">{payrollPreview.reduce((sum, p) => sum + p.totalHours, 0).toFixed(1)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600">Gross Pay</div>
-                    <div className="font-bold">${payrollPreview.reduce((sum, p) => sum + p.grossPay, 0).toFixed(2)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600">Net Pay</div>
-                    <div className="font-bold text-green-600">${totalPreviewAmount.toFixed(2)}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep(2)}>
-                  Back: Review Details
-                </Button>
-                <Button onClick={generatePayroll} disabled={loading || payrollPreview.length === 0}>
                   {loading ? "Generating..." : "Generate Payroll Records"}
                 </Button>
               </div>

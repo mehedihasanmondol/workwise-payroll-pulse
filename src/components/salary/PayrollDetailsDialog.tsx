@@ -4,192 +4,122 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Printer, Download, DollarSign, Calendar, User, Building } from "lucide-react";
-import { Payroll, Profile, BankAccount } from "@/types/database";
+import { Download, Printer, DollarSign, Calendar, User, Building2 } from "lucide-react";
+import { Payroll } from "@/types/database";
 
 interface PayrollDetailsDialogProps {
-  payroll: Payroll | null;
-  isOpen: boolean;
-  onClose: () => void;
-  profile?: Profile | null;
-  bankAccount?: BankAccount | null;
+  payroll: Payroll;
+  onOpenChange: (open: boolean) => void;
+  onRefresh: () => void;
 }
 
-export const PayrollDetailsDialog = ({ 
-  payroll, 
-  isOpen, 
-  onClose, 
-  profile, 
-  bankAccount 
-}: PayrollDetailsDialogProps) => {
-  const [isPrinting, setIsPrinting] = useState(false);
+export const PayrollDetailsDialog = ({ payroll, onOpenChange, onRefresh }: PayrollDetailsDialogProps) => {
+  const [isOpen, setIsOpen] = useState(true);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    onOpenChange(false);
+  };
 
   const handlePrint = () => {
-    setIsPrinting(true);
-    setTimeout(() => {
-      window.print();
-      setIsPrinting(false);
-    }, 100);
+    window.print();
   };
 
   const handleDownload = () => {
-    const content = generatePayrollContent();
+    // Create a simple text version for download
+    const content = `
+PAYROLL DETAILS
+================
+Employee: ${payroll.profiles?.full_name || 'N/A'}
+Pay Period: ${payroll.pay_period_start} to ${payroll.pay_period_end}
+Total Hours: ${payroll.total_hours}
+Hourly Rate: $${payroll.hourly_rate}
+Gross Pay: $${payroll.gross_pay}
+Deductions: $${payroll.deductions}
+Net Pay: $${payroll.net_pay}
+Status: ${payroll.status}
+    `;
+    
     const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `payroll-${profile?.full_name?.replace(/\s+/g, '-')}-${payroll?.pay_period_start}.txt`;
-    document.body.appendChild(a);
+    a.download = `payroll-${payroll.profiles?.full_name}-${payroll.pay_period_start}.txt`;
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(url);
   };
-
-  const generatePayrollContent = () => {
-    if (!payroll || !profile) return '';
-    
-    return `
-PAYROLL STATEMENT
-=================
-
-Employee Information:
-Name: ${profile.full_name}
-Email: ${profile.email}
-Role: ${profile.role}
-Employment Type: ${profile.employment_type}
-
-Pay Period:
-Start Date: ${new Date(payroll.pay_period_start).toLocaleDateString()}
-End Date: ${new Date(payroll.pay_period_end).toLocaleDateString()}
-
-Payment Details:
-Total Hours: ${payroll.total_hours}
-Hourly Rate: $${payroll.hourly_rate.toFixed(2)}
-Gross Pay: $${payroll.gross_pay.toFixed(2)}
-Deductions: $${payroll.deductions.toFixed(2)}
-Net Pay: $${payroll.net_pay.toFixed(2)}
-
-Bank Account Information:
-${bankAccount ? `
-Bank Name: ${bankAccount.bank_name}
-Account Number: ${bankAccount.account_number}
-Account Holder: ${bankAccount.account_holder_name}
-${bankAccount.bsb_code ? `BSB Code: ${bankAccount.bsb_code}` : ''}
-${bankAccount.swift_code ? `SWIFT Code: ${bankAccount.swift_code}` : ''}
-` : 'No bank account information available'}
-
-Status: ${payroll.status.toUpperCase()}
-Generated: ${new Date(payroll.created_at).toLocaleDateString()}
-
----
-This is an automatically generated payroll statement.
-`;
-  };
-
-  if (!payroll || !profile) {
-    return null;
-  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Payroll Details - {profile.full_name}
-            </DialogTitle>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrint}
-                disabled={isPrinting}
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                {isPrinting ? 'Preparing...' : 'Print'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownload}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-            </div>
-          </div>
+          <DialogTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Payroll Details - {payroll.profiles?.full_name}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6" id="payroll-content">
+        <div className="space-y-6">
           {/* Employee Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <User className="h-5 w-5" />
+                <User className="h-4 w-4" />
                 Employee Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
-                <div className="text-sm text-gray-600">Full Name</div>
-                <div className="font-medium">{profile.full_name}</div>
+                <label className="text-sm font-medium text-gray-600">Full Name</label>
+                <p className="font-semibold">{payroll.profiles?.full_name || 'N/A'}</p>
               </div>
               <div>
-                <div className="text-sm text-gray-600">Email</div>
-                <div className="font-medium">{profile.email}</div>
+                <label className="text-sm font-medium text-gray-600">Email</label>
+                <p>{payroll.profiles?.email || 'N/A'}</p>
               </div>
               <div>
-                <div className="text-sm text-gray-600">Role</div>
-                <div className="font-medium capitalize">{profile.role}</div>
+                <label className="text-sm font-medium text-gray-600">Role</label>
+                <p>{payroll.profiles?.role || 'N/A'}</p>
               </div>
               <div>
-                <div className="text-sm text-gray-600">Employment Type</div>
-                <div className="font-medium capitalize">{profile.employment_type}</div>
+                <label className="text-sm font-medium text-gray-600">Employment Type</label>
+                <p>{payroll.profiles?.employment_type || 'N/A'}</p>
               </div>
-              {profile.phone && (
-                <div>
-                  <div className="text-sm text-gray-600">Phone</div>
-                  <div className="font-medium">{profile.phone}</div>
-                </div>
-              )}
-              {profile.full_address && (
-                <div className="md:col-span-2">
-                  <div className="text-sm text-gray-600">Address</div>
-                  <div className="font-medium">{profile.full_address}</div>
-                </div>
-              )}
+              <div>
+                <label className="text-sm font-medium text-gray-600">Phone</label>
+                <p>{payroll.profiles?.phone || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Address</label>
+                <p>{payroll.profiles?.full_address || 'N/A'}</p>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Pay Period Information */}
+          {/* Payroll Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Calendar className="h-5 w-5" />
-                Pay Period Details
+                <Calendar className="h-4 w-4" />
+                Pay Period & Hours
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="text-sm text-gray-600">Start Date</div>
-                <div className="font-medium">{new Date(payroll.pay_period_start).toLocaleDateString()}</div>
+                <label className="text-sm font-medium text-gray-600">Pay Period Start</label>
+                <p className="font-semibold">{payroll.pay_period_start}</p>
               </div>
               <div>
-                <div className="text-sm text-gray-600">End Date</div>
-                <div className="font-medium">{new Date(payroll.pay_period_end).toLocaleDateString()}</div>
+                <label className="text-sm font-medium text-gray-600">Pay Period End</label>
+                <p className="font-semibold">{payroll.pay_period_end}</p>
               </div>
               <div>
-                <div className="text-sm text-gray-600">Status</div>
-                <div className={`font-medium capitalize ${
-                  payroll.status === 'paid' 
-                    ? 'text-green-600' 
-                    : payroll.status === 'pending'
-                    ? 'text-yellow-600'
-                    : 'text-gray-600'
-                }`}>
-                  {payroll.status}
-                </div>
+                <label className="text-sm font-medium text-gray-600">Total Hours</label>
+                <p className="font-semibold">{payroll.total_hours}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Hourly Rate</label>
+                <p className="font-semibold">${payroll.hourly_rate}</p>
               </div>
             </CardContent>
           </Card>
@@ -198,113 +128,83 @@ This is an automatically generated payroll statement.
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <DollarSign className="h-5 w-5" />
+                <DollarSign className="h-4 w-4" />
                 Payment Calculation
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-gray-600">Total Hours</div>
-                    <div className="text-xl font-bold">{payroll.total_hours}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Hourly Rate</div>
-                    <div className="text-xl font-bold">${payroll.hourly_rate.toFixed(2)}</div>
-                  </div>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Gross Pay</p>
+                  <p className="text-2xl font-bold text-blue-600">${payroll.gross_pay}</p>
                 </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Gross Pay</span>
-                    <span className="font-medium">${payroll.gross_pay.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-red-600">
-                    <span>Deductions</span>
-                    <span className="font-medium">-${payroll.deductions.toFixed(2)}</span>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex justify-between text-lg">
-                    <span className="font-semibold">Net Pay</span>
-                    <span className="font-bold text-green-600">${payroll.net_pay.toFixed(2)}</span>
-                  </div>
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Deductions</p>
+                  <p className="text-2xl font-bold text-red-600">${payroll.deductions}</p>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Net Pay</p>
+                  <p className="text-2xl font-bold text-green-600">${payroll.net_pay}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Bank Account Information */}
-          {bankAccount && (
+          {payroll.bank_accounts && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Building className="h-5 w-5" />
+                  <Building2 className="h-4 w-4" />
                   Bank Account Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <div className="text-sm text-gray-600">Bank Name</div>
-                  <div className="font-medium">{bankAccount.bank_name}</div>
+                  <label className="text-sm font-medium text-gray-600">Bank Name</label>
+                  <p className="font-semibold">{payroll.bank_accounts.bank_name}</p>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-600">Account Number</div>
-                  <div className="font-medium">{bankAccount.account_number}</div>
+                  <label className="text-sm font-medium text-gray-600">Account Number</label>
+                  <p className="font-semibold">{payroll.bank_accounts.account_number}</p>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-600">Account Holder</div>
-                  <div className="font-medium">{bankAccount.account_holder_name}</div>
+                  <label className="text-sm font-medium text-gray-600">Account Holder</label>
+                  <p className="font-semibold">{payroll.bank_accounts.account_holder_name}</p>
                 </div>
-                {bankAccount.bsb_code && (
+                {payroll.bank_accounts.bsb_code && (
                   <div>
-                    <div className="text-sm text-gray-600">BSB Code</div>
-                    <div className="font-medium">{bankAccount.bsb_code}</div>
+                    <label className="text-sm font-medium text-gray-600">BSB Code</label>
+                    <p className="font-semibold">{payroll.bank_accounts.bsb_code}</p>
                   </div>
                 )}
-                {bankAccount.swift_code && (
-                  <div className="md:col-span-2">
-                    <div className="text-sm text-gray-600">SWIFT Code</div>
-                    <div className="font-medium">{bankAccount.swift_code}</div>
+                {payroll.bank_accounts.swift_code && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">SWIFT Code</label>
+                    <p className="font-semibold">{payroll.bank_accounts.swift_code}</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* Generated Information */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center text-sm text-gray-500">
-                <p>This payroll statement was generated on {new Date(payroll.created_at).toLocaleDateString()}</p>
-                <p className="mt-1">Payroll ID: {payroll.id}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <Separator />
 
-        <style>{`
-          @media print {
-            .dialog-content {
-              box-shadow: none !important;
-              border: none !important;
-            }
-            
-            button {
-              display: none !important;
-            }
-            
-            .dialog-header {
-              border-bottom: 1px solid #ccc;
-              padding-bottom: 1rem;
-              margin-bottom: 1rem;
-            }
-          }
-        `}</style>
+          {/* Action Buttons */}
+          <div className="flex justify-between">
+            <div className="flex gap-2">
+              <Button onClick={handlePrint} variant="outline">
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+              <Button onClick={handleDownload} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
+            <Button onClick={handleClose}>Close</Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
