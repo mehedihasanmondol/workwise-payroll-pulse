@@ -1,77 +1,89 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, DollarSign, MapPin } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Search, Clock, CheckCircle, XCircle, DollarSign, Timer, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Profile, Client, Project, WorkingHour } from "@/types/database";
+import { WorkingHour, Profile, Client, Project } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
-import { format } from 'date-fns';
-import { EditWorkingHoursDialog } from "./EditWorkingHoursDialog";
+import { ProfileSelector } from "@/components/common/ProfileSelector";
+import { EditWorkingHoursDialog } from "@/components/EditWorkingHoursDialog";
 
-const WorkingHours = () => {
-  const [formData, setFormData] = useState({
-    profile_id: "",
-    client_id: "",
-    project_id: "",
-    date: new Date().toISOString().split('T')[0],
-    start_time: "09:00",
-    end_time: "17:00",
-    sign_in_time: "09:00",
-    sign_out_time: "17:00",
-    hourly_rate: "",
-    notes: ""
-  });
-
+export const WorkingHoursComponent = () => {
+  const [searchTerm, setSearchTerm] = useState("");
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingWorkingHour, setEditingWorkingHour] = useState<WorkingHour | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
+  const [formData, setFormData] = useState({
+    profile_id: "",
+    client_id: "",
+    project_id: "",
+    date: new Date().toISOString().split('T')[0], // Auto-fill with today's date
+    start_time: "",
+    end_time: "",
+    sign_in_time: "",
+    sign_out_time: "",
+    hourly_rate: 0,
+    notes: "",
+    status: "pending"
+  });
+
   useEffect(() => {
-    fetchAllData();
+    fetchWorkingHours();
+    fetchProfiles();
+    fetchClients();
+    fetchProjects();
   }, []);
 
-  const fetchAllData = async () => {
+  // Auto-fill today's date when dialog opens
+  useEffect(() => {
+    if (isDialogOpen && !editingWorkingHour) {
+      setFormData(prev => ({
+        ...prev,
+        date: new Date().toISOString().split('T')[0]
+      }));
+    }
+  }, [isDialogOpen, editingWorkingHour]);
+
+  const fetchWorkingHours = async () => {
     try {
-      setLoading(true);
+      const { data, error } = await supabase
+        .from('working_hours')
+        .select(`
+          *,
+          profiles!working_hours_profile_id_fkey (id, full_name, role, hourly_rate),
+          clients!working_hours_client_id_fkey (id, company),
+          projects!working_hours_project_id_fkey (id, name)
+        `)
+        .order('created_at', { ascending: false });
 
-      const [workingHoursRes, profilesRes, clientsRes, projectsRes] = await Promise.all([
-        supabase
-          .from('working_hours')
-          .select(`
-            *,
-            profiles!working_hours_profile_id_fkey (id, full_name, role),
-            clients!working_hours_client_id_fkey (id, name, company),
-            projects!working_hours_project_id_fkey (id, name)
-          `)
-          .order('date', { ascending: false }),
-        supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
-        supabase.from('clients').select('*').order('name'),
-        supabase.from('projects').select('*').order('name')
-      ]);
-
-      if (workingHoursRes.error) throw workingHoursRes.error;
-      if (profilesRes.error) throw profilesRes.error;
-      if (clientsRes.error) throw clientsRes.error;
-      if (projectsRes.error) throw projectsRes.error;
-
-      setWorkingHours(workingHoursRes.data as WorkingHour[]);
-      setProfiles(profilesRes.data as Profile[]);
-      setClients(clientsRes.data as Client[]);
-      setProjects(projectsRes.data as Project[]);
-    } catch (error: any) {
-      console.error("Error fetching data:", error);
+      if (error) throw error;
+      
+      const workingHoursData = (data || []).map(wh => ({
+        ...wh,
+        profiles: Array.isArray(wh.profiles) ? wh.profiles[0] : wh.profiles,
+        clients: Array.isArray(wh.clients) ? wh.clients[0] : wh.clients,
+        projects: Array.isArray(wh.projects) ? wh.projects[0] : wh.projects
+      }));
+      
+      setWorkingHours(workingHoursData as WorkingHour[]);
+    } catch (error) {
+      console.error('Error fetching working hours:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch data",
+        description: "Failed to fetch working hours",
         variant: "destructive"
       });
     } finally {
@@ -79,93 +91,112 @@ const WorkingHours = () => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (value: string, name: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const calculateHours = (startTime: string, endTime: string): number => {
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-    
-    const startTotalMinutes = startHour * 60 + startMinute;
-    const endTotalMinutes = endHour * 60 + endMinute;
-    
-    return (endTotalMinutes - startTotalMinutes) / 60;
-  };
-
-  const calculateOvertimeHours = (totalHours: number): number => {
-    return Math.max(0, totalHours - 8);
-  };
-
-  const submitWorkingHours = async () => {
+  const fetchProfiles = async () => {
     try {
-      setLoading(true);
-
-      const totalHours = calculateHours(formData.sign_in_time, formData.sign_out_time);
-      const actualHours = calculateHours(formData.start_time, formData.end_time);
-      const overtimeHours = calculateOvertimeHours(actualHours);
-      const hourlyRate = parseFloat(formData.hourly_rate) || 0;
-      const payableAmount = actualHours * hourlyRate;
-
-      const workingHourData = {
-        profile_id: formData.profile_id,
-        client_id: formData.client_id,
-        project_id: formData.project_id,
-        date: formData.date,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
-        sign_in_time: formData.sign_in_time,
-        sign_out_time: formData.sign_out_time,
-        total_hours: totalHours,
-        actual_hours: actualHours,
-        overtime_hours: overtimeHours,
-        hourly_rate: hourlyRate,
-        payable_amount: payableAmount,
-        notes: formData.notes,
-        status: 'pending' as const
-      };
-
       const { data, error } = await supabase
-        .from('working_hours')
-        .insert([workingHourData])
-        .select(`
-          *,
-          profiles!working_hours_profile_id_fkey (id, full_name, role),
-          clients!working_hours_client_id_fkey (id, name, company),
-          projects!working_hours_project_id_fkey (id, name)
-        `);
+        .from('profiles')
+        .select('*')
+        .eq('is_active', true)
+        .order('full_name');
 
       if (error) throw error;
+      setProfiles(data as Profile[]);
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+    }
+  };
 
-      setWorkingHours(prev => [...(data as WorkingHour[]), ...prev]);
-      toast({
-        title: "Success",
-        description: "Working hours submitted successfully"
-      });
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('status', 'active')
+        .order('company');
 
-      // Reset form
+      if (error) throw error;
+      setClients(data as Client[]);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('status', 'active')
+        .order('name');
+
+      if (error) throw error;
+      setProjects(data as Project[]);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
+  const calculateTotalHours = (startTime: string, endTime: string) => {
+    if (!startTime || !endTime) return 0;
+    
+    const start = new Date(`2000-01-01T${startTime}`);
+    const end = new Date(`2000-01-01T${endTime}`);
+    const diffMs = end.getTime() - start.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    return Math.max(0, diffHours);
+  };
+
+  const calculateActualHours = (signInTime: string, signOutTime: string) => {
+    if (!signInTime || !signOutTime) return 0;
+    return calculateTotalHours(signInTime, signOutTime);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const totalHours = calculateTotalHours(formData.start_time, formData.end_time);
+      const actualHours = calculateActualHours(formData.sign_in_time, formData.sign_out_time);
+      const overtimeHours = Math.max(0, actualHours - totalHours);
+      const payableAmount = (actualHours || totalHours) * formData.hourly_rate;
+      
+      const { error } = await supabase
+        .from('working_hours')
+        .insert([{
+          ...formData,
+          total_hours: totalHours,
+          actual_hours: actualHours || null,
+          overtime_hours: overtimeHours,
+          payable_amount: payableAmount,
+          sign_in_time: formData.sign_in_time || null,
+          sign_out_time: formData.sign_out_time || null
+        }]);
+
+      if (error) throw error;
+      toast({ title: "Success", description: "Working hours logged successfully" });
+      
+      setIsDialogOpen(false);
       setFormData({
         profile_id: "",
         client_id: "",
         project_id: "",
-        date: new Date().toISOString().split('T')[0],
-        start_time: "09:00",
-        end_time: "17:00",
-        sign_in_time: "09:00",
-        sign_out_time: "17:00",
-        hourly_rate: "",
-        notes: ""
+        date: new Date().toISOString().split('T')[0], // Reset to today's date
+        start_time: "",
+        end_time: "",
+        sign_in_time: "",
+        sign_out_time: "",
+        hourly_rate: 0,
+        notes: "",
+        status: "pending"
       });
-    } catch (error: any) {
-      console.error("Error submitting working hours:", error);
+      fetchWorkingHours();
+    } catch (error) {
+      console.error('Error saving working hours:', error);
       toast({
         title: "Error",
-        description: "Failed to submit working hours",
+        description: "Failed to save working hours",
         variant: "destructive"
       });
     } finally {
@@ -173,7 +204,7 @@ const WorkingHours = () => {
     }
   };
 
-  const updateWorkingHourStatus = async (id: string, status: 'approved' | 'rejected') => {
+  const updateStatus = async (id: string, status: 'approved' | 'rejected') => {
     try {
       const { error } = await supabase
         .from('working_hours')
@@ -181,280 +212,392 @@ const WorkingHours = () => {
         .eq('id', id);
 
       if (error) throw error;
-
-      setWorkingHours(prev => 
-        prev.map(wh => 
-          wh.id === id ? { ...wh, status } : wh
-        )
-      );
-
-      toast({
-        title: "Success",
-        description: `Working hours ${status} successfully`
+      toast({ 
+        title: "Success", 
+        description: `Working hours ${status} successfully` 
       });
-    } catch (error: any) {
-      console.error(`Error ${status} working hours:`, error);
+      fetchWorkingHours();
+    } catch (error) {
+      console.error('Error updating status:', error);
       toast({
         title: "Error",
-        description: `Failed to ${status} working hours`,
+        description: "Failed to update status",
         variant: "destructive"
       });
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'default';
-      case 'rejected':
-        return 'destructive';
-      case 'paid':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
+  const handleEdit = (workingHour: WorkingHour) => {
+    setEditingWorkingHour(workingHour);
+    setIsEditDialogOpen(true);
   };
+
+  const filteredWorkingHours = workingHours.filter(wh =>
+    (wh.profiles?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (wh.projects?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading && workingHours.length === 0) {
+    return <div className="flex justify-center items-center h-64">Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Submit Working Hours
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="profile_id">Employee</Label>
-              <Select onValueChange={(value) => handleSelectChange(value, "profile_id")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {profiles.map((profile) => (
-                    <SelectItem key={profile.id} value={profile.id}>
-                      {profile.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="client_id">Client</Label>
-              <Select onValueChange={(value) => handleSelectChange(value, "client_id")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="project_id">Project</Label>
-              <Select onValueChange={(value) => handleSelectChange(value, "project_id")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="date">Date</Label>
-              <Input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div>
-              <Label htmlFor="hourly_rate">Hourly Rate</Label>
-              <Input
-                type="number"
-                id="hourly_rate"
-                name="hourly_rate"
-                value={formData.hourly_rate}
-                onChange={handleInputChange}
-                step="0.01"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="start_time">Work Start Time</Label>
-              <Input
-                type="time"
-                id="start_time"
-                name="start_time"
-                value={formData.start_time}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div>
-              <Label htmlFor="end_time">Work End Time</Label>
-              <Input
-                type="time"
-                id="end_time"
-                name="end_time"
-                value={formData.end_time}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div>
-              <Label htmlFor="sign_in_time">Sign In Time</Label>
-              <Input
-                type="time"
-                id="sign_in_time"
-                name="sign_in_time"
-                value={formData.sign_in_time}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div>
-              <Label htmlFor="sign_out_time">Sign Out Time</Label>
-              <Input
-                type="time"
-                id="sign_out_time"
-                name="sign_out_time"
-                value={formData.sign_out_time}
-                onChange={handleInputChange}
-              />
-            </div>
-          </div>
-
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Clock className="h-8 w-8 text-blue-600" />
           <div>
-            <Label htmlFor="notes">Notes</Label>
-            <Input
-              id="notes"
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="Additional notes..."
-            />
+            <h1 className="text-3xl font-bold text-gray-900">Enhanced Working Hours</h1>
+            <p className="text-gray-600">Track actual hours, overtime, and payroll calculations</p>
           </div>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Log Hours
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Log Enhanced Working Hours</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <ProfileSelector
+                profiles={profiles}
+                selectedProfileId={formData.profile_id}
+                onProfileSelect={(profileId) => {
+                  const profile = profiles.find(p => p.id === profileId);
+                  setFormData({ 
+                    ...formData, 
+                    profile_id: profileId,
+                    hourly_rate: profile?.hourly_rate || 0 // Auto-suggest hourly rate
+                  });
+                }}
+                label="Select Profile"
+                placeholder="Choose a team member"
+                showRoleFilter={true}
+              />
+              
+              <div>
+                <Label htmlFor="client_id">Client</Label>
+                <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.company}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <Button 
-            onClick={submitWorkingHours} 
-            disabled={loading || !formData.profile_id || !formData.client_id || !formData.project_id}
-          >
-            {loading ? "Submitting..." : "Submit Working Hours"}
-          </Button>
-        </CardContent>
-      </Card>
+              <div>
+                <Label htmlFor="project_id">Project</Label>
+                <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.filter(p => !formData.client_id || p.client_id === formData.client_id).map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="border-t pt-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Scheduled Hours</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="start_time">Start Time</Label>
+                      <Input
+                        id="start_time"
+                        type="time"
+                        value={formData.start_time}
+                        onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="end_time">End Time</Label>
+                      <Input
+                        id="end_time"
+                        type="time"
+                        value={formData.end_time}
+                        onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Actual Hours (Optional)</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="sign_in_time">Sign In Time</Label>
+                      <Input
+                        id="sign_in_time"
+                        type="time"
+                        value={formData.sign_in_time}
+                        onChange={(e) => setFormData({ ...formData, sign_in_time: e.target.value })}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="sign_out_time">Sign Out Time</Label>
+                      <Input
+                        id="sign_out_time"
+                        type="time"
+                        value={formData.sign_out_time}
+                        onChange={(e) => setFormData({ ...formData, sign_out_time: e.target.value })}
+                        placeholder="Optional"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="hourly_rate">Hourly Rate ($)</Label>
+                  <Input
+                    id="hourly_rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.hourly_rate}
+                    onChange={(e) => setFormData({ ...formData, hourly_rate: parseFloat(e.target.value) || 0 })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Additional notes about this work session..."
+                  />
+                </div>
+              </div>
+
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? "Saving..." : "Log Hours"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Enhanced Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Entries</CardTitle>
+            <Clock className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{filteredWorkingHours.length}</div>
+            <p className="text-xs text-muted-foreground">All logged hours</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Hours</CardTitle>
+            <Timer className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {filteredWorkingHours.reduce((sum, wh) => sum + (wh.actual_hours || wh.total_hours), 0).toFixed(1)}
+            </div>
+            <p className="text-xs text-muted-foreground">Actual hours worked</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Overtime Hours</CardTitle>
+            <Timer className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {filteredWorkingHours.reduce((sum, wh) => sum + (wh.overtime_hours || 0), 0).toFixed(1)}
+            </div>
+            <p className="text-xs text-muted-foreground">Extra hours worked</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Payable</CardTitle>
+            <DollarSign className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              ${filteredWorkingHours.reduce((sum, wh) => sum + (wh.payable_amount || 0), 0).toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">Total amount due</p>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Working Hours Records
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Enhanced Working Hours Log ({filteredWorkingHours.length})</CardTitle>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search by name or project..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {workingHours.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">No working hours records found.</p>
-          ) : (
-            <div className="space-y-4">
-              {workingHours.map((wh) => (
-                <Card key={wh.id} className="border-l-4 border-l-blue-500">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Profile</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Project</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Date</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Scheduled</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Actual</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Overtime</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Payable</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredWorkingHours.map((wh) => (
+                  <tr key={wh.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4">
                       <div>
-                        <h4 className="font-semibold">{(wh as any).profiles?.full_name}</h4>
-                        <p className="text-sm text-gray-600">{(wh as any).clients?.company} - {(wh as any).projects?.name}</p>
+                        <div className="font-medium text-gray-900">{wh.profiles?.full_name || 'N/A'}</div>
+                        <div className="text-sm text-gray-600">{wh.profiles?.role || 'N/A'}</div>
                       </div>
-                      <Badge variant={getStatusBadgeVariant(wh.status)}>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <div className="font-medium text-gray-900">{wh.projects?.name || 'N/A'}</div>
+                        <div className="text-sm text-gray-600">{wh.clients?.company || 'N/A'}</div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">
+                      {new Date(wh.date).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">
+                      <div className="text-sm">
+                        {wh.start_time} - {wh.end_time}
+                        <div className="text-xs text-gray-500">{wh.total_hours}h</div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">
+                      <div className="text-sm">
+                        {wh.sign_in_time && wh.sign_out_time ? (
+                          <>
+                            {wh.sign_in_time} - {wh.sign_out_time}
+                            <div className="text-xs text-gray-500">{wh.actual_hours || 0}h</div>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">Not recorded</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className={`text-sm font-medium ${(wh.overtime_hours || 0) > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
+                        {(wh.overtime_hours || 0).toFixed(1)}h
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="text-sm font-medium text-purple-600">
+                        ${(wh.payable_amount || 0).toFixed(2)}
+                        <div className="text-xs text-gray-500">${wh.hourly_rate || 0}/hr</div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge variant={
+                        wh.status === "approved" ? "default" : 
+                        wh.status === "pending" ? "secondary" : "outline"
+                      }>
                         {wh.status}
                       </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {format(new Date(wh.date), 'MMM dd, yyyy')}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleEdit(wh)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {wh.status === "pending" && (
+                          <>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => updateStatus(wh.id, "approved")}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => updateStatus(wh.id, "rejected")}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {wh.start_time} - {wh.end_time}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4" />
-                        ${wh.hourly_rate}/hr
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {wh.total_hours}h total
-                      </div>
-                    </div>
-
-                    {wh.notes && (
-                      <p className="text-sm text-gray-600 mt-2">{wh.notes}</p>
-                    )}
-
-                    <div className="flex gap-2 mt-3">
-                      {wh.status === 'pending' && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => updateWorkingHourStatus(wh.id, 'approved')}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => updateWorkingHourStatus(wh.id, 'rejected')}
-                          >
-                            Reject
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingWorkingHour(wh)}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
-      {editingWorkingHour && (
-        <EditWorkingHoursDialog
-          workingHour={editingWorkingHour}
-          profiles={profiles}
-          clients={clients}
-          projects={projects}
-          onClose={() => setEditingWorkingHour(null)}
-          onRefresh={fetchAllData}
-        />
-      )}
+      <EditWorkingHoursDialog
+        workingHour={editingWorkingHour}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setEditingWorkingHour(null);
+        }}
+        onUpdate={fetchWorkingHours}
+        profiles={profiles}
+        clients={clients}
+        projects={projects}
+      />
     </div>
   );
 };
-
-export default WorkingHours;
