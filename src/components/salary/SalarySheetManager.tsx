@@ -291,7 +291,7 @@ export const SalarySheetManager = ({ payrolls, profiles, onRefresh }: SalaryShee
                 id="bulk-approve"
                 checked={isBulkApprove}
                 onCheckedChange={(checked) => {
-                  setIsBulkApprove(checked || false);
+                  setIsBulkApprove(checked === true);
                   setIsBulkPay(false);
                 }}
               />
@@ -304,7 +304,7 @@ export const SalarySheetManager = ({ payrolls, profiles, onRefresh }: SalaryShee
                 id="bulk-pay"
                 checked={isBulkPay}
                 onCheckedChange={(checked) => {
-                  setIsBulkPay(checked || false);
+                  setIsBulkPay(checked === true);
                   setIsBulkApprove(false);
                 }}
               />

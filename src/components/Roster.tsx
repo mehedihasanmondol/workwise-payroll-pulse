@@ -8,6 +8,7 @@ import { Calendar } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
@@ -197,24 +198,25 @@ export const Roster = ({ profiles, clients, projects, onRefresh }: RosterProps) 
                 <PopoverTrigger asChild>
                   <Button
                     variant={"outline"}
-                    className={format(dateRange?.from as Date, 'PPP') === format(dateRange?.to as Date, 'PPP') ? "justify-start text-left font-normal text-[0.9rem] w-full" : "justify-start text-left font-normal text-[0.9rem]"}
+                    className="justify-start text-left font-normal text-[0.9rem] w-full"
                   >
                     <Calendar className="mr-2 h-4 w-4" />
                     {dateRange?.from ? (
-                      format(dateRange.from, "PPP") === format(dateRange.to as Date, "PPP") ? format(dateRange.from, "PPP") : `${format(dateRange.from, "PPP")} - ${format(dateRange.to as Date, "PPP")}`
+                      dateRange.from.toDateString() === dateRange.to?.toDateString() 
+                        ? format(dateRange.from, "PPP") 
+                        : `${format(dateRange.from, "PPP")} - ${format(dateRange.to as Date, "PPP")}`
                     ) : (
                       <span>Pick a date</span>
                     )}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
+                  <CalendarComponent
                     mode="range"
                     defaultMonth={dateRange?.from}
                     selected={dateRange}
                     onSelect={setDateRange}
                     numberOfMonths={2}
-                    pagedNavigation
                   />
                 </PopoverContent>
               </Popover>
