@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ProfileSelector } from "@/components/common/ProfileSelector";
 import { EditWorkingHoursDialog } from "@/components/EditWorkingHoursDialog";
 
-export const WorkingHours = () => {
+export const WorkingHoursComponent = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -172,8 +171,7 @@ export const WorkingHours = () => {
           overtime_hours: overtimeHours,
           payable_amount: payableAmount,
           sign_in_time: formData.sign_in_time || null,
-          sign_out_time: formData.sign_out_time || null,
-          status: 'pending' as const
+          sign_out_time: formData.sign_out_time || null
         }]);
 
       if (error) throw error;
