@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,11 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ProfileSelector } from "@/components/ProfileSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { Profile, Client, Project, Roster } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
-import { DatePicker } from "@/components/ui/date-picker";
 import { format } from 'date-fns';
 
 const RosterComponent = () => {
@@ -93,62 +92,6 @@ const RosterComponent = () => {
     }
   };
 
-  const createRoster = async () => {
-    try {
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from('rosters')
-        .insert({
-          profile_id: formData.profile_id,
-          client_id: formData.client_id,
-          project_id: formData.project_id,
-          date: formData.date,
-          end_date: formData.end_date,
-          start_time: formData.start_time,
-          end_time: formData.end_time,
-          total_hours: parseFloat(formData.total_hours),
-          notes: formData.notes,
-          status: 'pending',
-          name: formData.name,
-          expected_profiles: formData.expected_profiles,
-          per_hour_rate: parseFloat(formData.per_hour_rate || '0')
-        })
-        .select();
-
-      if (error) throw error;
-
-      setRosters(prev => [...prev, ...(data as Roster[])]);
-      toast({
-        title: "Success",
-        description: "Roster created successfully"
-      });
-      setFormData({
-        profile_id: "",
-        client_id: "",
-        project_id: "",
-        date: new Date(),
-        end_date: new Date(),
-        start_time: "09:00",
-        end_time: "17:00",
-        total_hours: "8",
-        notes: "",
-        name: "",
-        expected_profiles: 1,
-        per_hour_rate: ""
-      });
-    } catch (error: any) {
-      console.error("Error creating roster:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create roster",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const createMultipleRosters = async () => {
     try {
       setLoading(true);
@@ -157,8 +100,8 @@ const RosterComponent = () => {
         profile_id: profileId,
         client_id: formData.client_id,
         project_id: formData.project_id,
-        date: formData.date,
-        end_date: formData.end_date,
+        date: formData.date.toISOString().split('T')[0],
+        end_date: formData.end_date.toISOString().split('T')[0],
         start_time: formData.start_time,
         end_time: formData.end_time,
         total_hours: parseFloat(formData.total_hours),
@@ -223,13 +166,45 @@ const RosterComponent = () => {
             </div>
           </div>
 
-          <ProfileSelector
-            profiles={profiles}
-            selectedProfileIds={selectedProfiles}
-            onProfileSelect={setSelectedProfiles}
-            mode="multiple"
-            label="Select Profiles"
-          />
+          <div>
+            <Label>Select Profiles</Label>
+            <Select onValueChange={(profileId) => {
+              if (!selectedProfiles.includes(profileId)) {
+                setSelectedProfiles(prev => [...prev, profileId]);
+              }
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select profiles" />
+              </SelectTrigger>
+              <SelectContent>
+                {profiles.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {profile.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedProfiles.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {selectedProfiles.map(profileId => {
+                  const profile = profiles.find(p => p.id === profileId);
+                  return (
+                    <div key={profileId} className="bg-blue-100 px-2 py-1 rounded text-sm flex items-center gap-1">
+                      {profile?.full_name}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-4 w-4 p-0"
+                        onClick={() => setSelectedProfiles(prev => prev.filter(id => id !== profileId))}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -267,11 +242,19 @@ const RosterComponent = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Date</Label>
-              <DatePicker onSelect={handleDateChange} />
+              <Input
+                type="date"
+                value={formData.date.toISOString().split('T')[0]}
+                onChange={(e) => setFormData(prev => ({ ...prev, date: new Date(e.target.value) }))}
+              />
             </div>
             <div>
               <Label>End Date</Label>
-              <DatePicker onSelect={handleEndDateChange} />
+              <Input
+                type="date"
+                value={formData.end_date.toISOString().split('T')[0]}
+                onChange={(e) => setFormData(prev => ({ ...prev, end_date: new Date(e.target.value) }))}
+              />
             </div>
           </div>
 

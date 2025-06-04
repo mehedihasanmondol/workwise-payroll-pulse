@@ -8,7 +8,7 @@ import { Download, Printer, DollarSign, Calendar, User, Building2 } from "lucide
 import { Payroll } from "@/types/database";
 
 interface PayrollDetailsDialogProps {
-  payroll: Payroll;
+  payroll: Payroll | null;
   onOpenChange: (open: boolean) => void;
   onRefresh: () => void;
 }
@@ -20,6 +20,11 @@ export const PayrollDetailsDialog = ({ payroll, onOpenChange, onRefresh }: Payro
     setIsOpen(false);
     onOpenChange(false);
   };
+
+  // Early return if payroll is null
+  if (!payroll) {
+    return null;
+  }
 
   const handlePrint = () => {
     window.print();
@@ -44,7 +49,7 @@ Status: ${payroll.status}
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `payroll-${payroll.profiles?.full_name}-${payroll.pay_period_start}.txt`;
+    a.download = `payroll-${payroll.profiles?.full_name || 'employee'}-${payroll.pay_period_start}.txt`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -55,7 +60,7 @@ Status: ${payroll.status}
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Payroll Details - {payroll.profiles?.full_name}
+            Payroll Details - {payroll.profiles?.full_name || 'Employee'}
           </DialogTitle>
         </DialogHeader>
 
