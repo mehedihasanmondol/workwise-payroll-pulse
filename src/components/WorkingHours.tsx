@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,18 +40,6 @@ export const WorkingHours = () => {
     notes: "",
     status: "pending"
   });
-
-  const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [totalHours, setTotalHours] = useState(0);
-  const [actualHours, setActualHours] = useState(0);
-  const [overtimeHours, setOvertimeHours] = useState(0);
-  const [hourlyRate, setHourlyRate] = useState(0);
-  const [signInTime, setSignInTime] = useState("");
-  const [signOutTime, setSignOutTime] = useState("");
-  const [notes, setNotes] = useState("");
-  const [selectedProfile, setSelectedProfile] = useState("");
-  const [selectedClient, setSelectedClient] = useState("");
-  const [selectedProject, setSelectedProject] = useState("");
 
   useEffect(() => {
     fetchWorkingHours();
@@ -183,7 +172,8 @@ export const WorkingHours = () => {
           overtime_hours: overtimeHours,
           payable_amount: payableAmount,
           sign_in_time: formData.sign_in_time || null,
-          sign_out_time: formData.sign_out_time || null
+          sign_out_time: formData.sign_out_time || null,
+          status: 'pending' as const
         }]);
 
       if (error) throw error;
@@ -209,53 +199,6 @@ export const WorkingHours = () => {
       toast({
         title: "Error",
         description: "Failed to save working hours",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBulkSubmit = async () => {
-    try {
-      setLoading(true);
-      
-      const workingHoursData = selectedDates.map(date => ({
-        total_hours: totalHours,
-        actual_hours: actualHours,
-        overtime_hours: overtimeHours,
-        payable_amount: totalHours * (parseFloat(hourlyRate) || 0),
-        sign_in_time: signInTime || startTime,
-        sign_out_time: signOutTime || endTime,
-        profile_id: selectedProfile,
-        client_id: selectedClient,
-        project_id: selectedProject,
-        date: date,
-        start_time: startTime,
-        end_time: endTime,
-        hourly_rate: parseFloat(hourlyRate) || 0,
-        notes: notes,
-        status: 'pending' as const
-      }));
-
-      const { error } = await supabase
-        .from('working_hours')
-        .insert(workingHoursData);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success", 
-        description: `Submitted ${workingHoursData.length} working hour entries successfully`
-      });
-      
-      onRefresh();
-      resetForm();
-    } catch (error: any) {
-      console.error('Error submitting working hours:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit working hours",
         variant: "destructive"
       });
     } finally {

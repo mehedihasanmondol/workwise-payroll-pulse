@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -98,16 +99,15 @@ export const SalarySheetManager = ({ payrolls, profiles, onRefresh }: SalaryShee
 
     try {
       setLoading(true);
-      const updates = selectedPayrolls.map(id => ({
-        id: id,
-        status: action === 'approve' ? 'approved' : 'paid'
-      }));
+      
+      for (const payrollId of selectedPayrolls) {
+        const { error } = await supabase
+          .from('payroll')
+          .update({ status: action === 'approve' ? 'approved' : 'paid' })
+          .eq('id', payrollId);
 
-      const { error } = await supabase
-        .from('payroll')
-        .upsert(updates);
-
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast({
         title: "Success",
@@ -401,67 +401,6 @@ export const SalarySheetManager = ({ payrolls, profiles, onRefresh }: SalaryShee
           bankAccount={bankAccounts.find(ba => ba.id === selectedPayroll.bank_account_id)}
         />
       )}
-
-      {/* Copy to Clipboard Dialog */}
-      <Dialog open={!!selectedPayroll} onOpenChange={() => setSelectedPayroll(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Copy Payroll Details</DialogTitle>
-          </DialogHeader>
-          {selectedPayroll && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="profile-id" className="text-right">
-                  Profile ID
-                </Label>
-                <Input
-                  type="text"
-                  id="profile-id"
-                  defaultValue={selectedPayroll.profile_id}
-                  className="col-span-3"
-                  readOnly
-                />
-                <Button variant="outline" size="sm" onClick={() => handleCopyToClipboard(selectedPayroll.profile_id, "Profile ID")}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="bank-account-id" className="text-right">
-                  Bank Account ID
-                </Label>
-                <Input
-                  type="text"
-                  id="bank-account-id"
-                  defaultValue={selectedPayroll.bank_account_id || 'N/A'}
-                  className="col-span-3"
-                  readOnly
-                />
-                <Button variant="outline" size="sm" onClick={() => handleCopyToClipboard(selectedPayroll.bank_account_id || 'N/A', "Bank Account ID")}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="net-pay" className="text-right">
-                  Net Pay
-                </Label>
-                <Input
-                  type="text"
-                  id="net-pay"
-                  defaultValue={selectedPayroll.net_pay.toFixed(2)}
-                  className="col-span-3"
-                  readOnly
-                />
-                <Button variant="outline" size="sm" onClick={() => handleCopyToClipboard(selectedPayroll.net_pay.toFixed(2), "Net Pay")}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

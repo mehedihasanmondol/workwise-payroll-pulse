@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { format } from 'date-fns';
-import { CalendarIcon } from "@radix-ui/react-icons"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -81,11 +81,11 @@ export const Roster = ({ profiles, clients, projects, onRefresh }: RosterProps) 
         profile_id: profileId,
         client_id: selectedClient,
         project_id: selectedProject,
-        date: dateRange.from?.toISOString().split('T')[0],
-        end_date: dateRange.to?.toISOString().split('T')[0],
+        date: dateRange?.from?.toISOString().split('T')[0] || '',
+        end_date: dateRange?.to?.toISOString().split('T')[0],
         start_time: timeRange.start,
         end_time: timeRange.end,
-        total_hours: calculateTotalHours(timeRange.start, timeRange.end),
+        total_hours: parseFloat(calculateTotalHours(timeRange.start, timeRange.end)),
         notes: notes,
         status: 'pending' as const,
         name: rosterName,
@@ -199,7 +199,7 @@ export const Roster = ({ profiles, clients, projects, onRefresh }: RosterProps) 
                     variant={"outline"}
                     className={format(dateRange?.from as Date, 'PPP') === format(dateRange?.to as Date, 'PPP') ? "justify-start text-left font-normal text-[0.9rem] w-full" : "justify-start text-left font-normal text-[0.9rem]"}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <Calendar className="mr-2 h-4 w-4" />
                     {dateRange?.from ? (
                       format(dateRange.from, "PPP") === format(dateRange.to as Date, "PPP") ? format(dateRange.from, "PPP") : `${format(dateRange.from, "PPP")} - ${format(dateRange.to as Date, "PPP")}`
                     ) : (
