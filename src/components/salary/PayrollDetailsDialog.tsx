@@ -5,9 +5,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Printer, Download, DollarSign, Calendar, User, Building, Clock, FileText } from "lucide-react";
-import { Payroll, Profile, BankAccount, WorkingHour } from "@/types/database";
+import { Payroll, Profile, BankAccount } from "@/types/database";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+interface WorkingHourWithDetails {
+  id: string;
+  date: string;
+  total_hours: number;
+  hourly_rate: number;
+  notes: string;
+  clients: {
+    id: string;
+    name: string;
+    company: string;
+    email: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  };
+  projects: {
+    id: string;
+    name: string;
+  };
+}
 
 interface PayrollDetailsDialogProps {
   payroll: Payroll | null;
@@ -23,7 +44,7 @@ export const PayrollDetailsDialog = ({
   const [isPrinting, setIsPrinting] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
-  const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
+  const [workingHours, setWorkingHours] = useState<WorkingHourWithDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -65,7 +86,7 @@ export const PayrollDetailsDialog = ({
         .from('working_hours')
         .select(`
           *,
-          clients!working_hours_client_id_fkey (id, name, company),
+          clients!working_hours_client_id_fkey (id, name, company, email, status, created_at, updated_at),
           projects!working_hours_project_id_fkey (id, name)
         `)
         .eq('profile_id', payroll.profile_id)
@@ -161,7 +182,7 @@ Date: ${new Date(wh.date).toLocaleDateString()}
 Client: ${wh.clients?.company || 'N/A'}
 Project: ${wh.projects?.name || 'N/A'}
 Hours: ${wh.total_hours}h
-Rate: $${wh.hourly_rate}/hr
+Rate: $${(wh.hourly_rate || 0).toFixed(2)}/hr
 Amount: $${(wh.total_hours * (wh.hourly_rate || 0)).toFixed(2)}
 ${wh.notes ? `Notes: ${wh.notes}` : ''}
 `).join('\n')}
@@ -360,7 +381,7 @@ This is an automatically generated payslip.
 
           {/* Working Hours Breakdown */}
           {workingHours.length > 0 && (
-            <Card className="print:shadow-none print:border">
+            <Card className="print:shadow-none print:border print:break-inside-avoid">
               <CardHeader className="print:pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg print:text-base">
                   <Clock className="h-5 w-5" />
@@ -369,7 +390,7 @@ This is an automatically generated payslip.
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm print:text-xs">
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-2 px-2 font-medium text-gray-600">Date</th>
@@ -382,7 +403,7 @@ This is an automatically generated payslip.
                     </thead>
                     <tbody>
                       {workingHours.map((wh) => (
-                        <tr key={wh.id} className="border-b border-gray-100">
+                        <tr key={wh.id} className="border-b border-gray-100 print:break-inside-avoid">
                           <td className="py-2 px-2">{new Date(wh.date).toLocaleDateString()}</td>
                           <td className="py-2 px-2">{wh.clients?.company || 'N/A'}</td>
                           <td className="py-2 px-2">{wh.projects?.name || 'N/A'}</td>
@@ -393,7 +414,7 @@ This is an automatically generated payslip.
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-gray-300 font-bold">
+                      <tr className="border-t-2 border-gray-300 font-bold print:break-inside-avoid">
                         <td colSpan={3} className="py-2 px-2 text-right">TOTALS:</td>
                         <td className="py-2 px-2 text-right">{workingHours.reduce((sum, wh) => sum + wh.total_hours, 0)}h</td>
                         <td className="py-2 px-2 text-right">-</td>
@@ -468,6 +489,18 @@ This is an automatically generated payslip.
             
             .bg-blue-50, .bg-green-50, .bg-purple-50, .bg-orange-50 {
               background-color: #f9f9f9 !important;
+            }
+
+            .print\\:break-inside-avoid {
+              break-inside: avoid;
+            }
+
+            table {
+              break-inside: auto;
+            }
+
+            tr {
+              break-inside: avoid;
             }
           }
         `}</style>
