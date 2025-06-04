@@ -765,9 +765,8 @@ export const SalarySheetManager = ({ payrolls: initialPayrolls, profiles, onRefr
       {/* Payroll Details Dialog */}
       <PayrollDetailsDialog
         payroll={selectedPayrollForView}
-        open={showPayrollDetails}
-        onOpenChange={setShowPayrollDetails}
-        onRefresh={onRefresh}
+        isOpen={showPayrollDetails}
+        onClose={() => setShowPayrollDetails(false)}
       />
     </div>
   );
