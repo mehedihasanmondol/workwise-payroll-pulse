@@ -51,28 +51,28 @@ const RosterManagement = () => {
         .from('rosters')
         .select(`
           *,
-          profiles!rosters_profile_id_fkey (id, full_name, email, role, avatar_url, is_active, created_at, updated_at),
-          clients!rosters_client_id_fkey (id, name, company, email, status, created_at, updated_at),
-          projects!rosters_project_id_fkey (id, name, client_id, status, start_date, budget, created_at, updated_at)
+          profiles!rosters_profile_id_fkey (id, full_name, email),
+          clients!rosters_client_id_fkey (id, name, company),
+          projects!rosters_project_id_fkey (id, name)
         `);
       if (rostersError) throw rostersError;
       setRosters(rostersData || []);
 
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('*');
+        .select('id, full_name, email');
       if (profilesError) throw profilesError;
       setProfiles(profilesData || []);
 
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
-        .select('*');
+        .select('id, name, company');
       if (clientsError) throw clientsError;
       setClients(clientsData || []);
 
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('*');
+        .select('id, name');
       if (projectsError) throw projectsError;
       setProjects(projectsData || []);
     } catch (error) {
@@ -89,12 +89,6 @@ const RosterManagement = () => {
 
   const handleInputChange = (index: number, event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
-    const newFormData = [...formData];
-    newFormData[index] = { ...newFormData[index], [name]: value };
-    setFormData(newFormData);
-  };
-
-  const handleSelectChange = (index: number, name: string, value: string) => {
     const newFormData = [...formData];
     newFormData[index] = { ...newFormData[index], [name]: value };
     setFormData(newFormData);
@@ -275,7 +269,7 @@ const RosterManagement = () => {
           </div>
 
           {isCalendarView ? (
-            <EnhancedRosterCalendarView rosters={rosters} onDelete={handleDeleteRoster} />
+            <EnhancedRosterCalendarView rosters={rosters} onEdit={handleEditRoster} onDelete={handleDeleteRoster} />
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {formData.map((data, index) => (
@@ -285,7 +279,7 @@ const RosterManagement = () => {
                       <Label htmlFor={`profile_id-${index}`}>Profile</Label>
                       <Select
                         value={data.profile_id}
-                        onValueChange={(value) => handleSelectChange(index, 'profile_id', value)}
+                        onValueChange={(value) => handleInputChange(index, { target: { name: 'profile_id', value } as any })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select profile" />
@@ -301,7 +295,7 @@ const RosterManagement = () => {
                       <Label htmlFor={`client_id-${index}`}>Client</Label>
                       <Select
                         value={data.client_id}
-                        onValueChange={(value) => handleSelectChange(index, 'client_id', value)}
+                        onValueChange={(value) => handleInputChange(index, { target: { name: 'client_id', value } as any })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select client" />
@@ -317,7 +311,7 @@ const RosterManagement = () => {
                       <Label htmlFor={`project_id-${index}`}>Project</Label>
                       <Select
                         value={data.project_id}
-                        onValueChange={(value) => handleSelectChange(index, 'project_id', value)}
+                        onValueChange={(value) => handleInputChange(index, { target: { name: 'project_id', value } as any })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select project" />
@@ -333,7 +327,7 @@ const RosterManagement = () => {
                       <Label htmlFor={`status-${index}`}>Status</Label>
                       <Select
                         value={data.status}
-                        onValueChange={(value) => handleSelectChange(index, 'status', value)}
+                        onValueChange={(value) => handleInputChange(index, { target: { name: 'status', value } as any })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
