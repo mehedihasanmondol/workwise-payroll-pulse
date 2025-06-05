@@ -245,9 +245,9 @@ This is an automatically generated payslip.
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 print:space-y-3">
+        <div className="space-y-6 print:space-y-4">
           {/* Header */}
-          <div className="text-center border-b-2 border-gray-800 pb-3 print:pb-2">
+          <div className="text-center border-b-2 border-gray-800 pb-4 print:pb-2">
             <h1 className="text-3xl font-bold text-gray-800 print:text-2xl">PAYSLIP</h1>
             <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
               <div>Pay Period: {new Date(payroll.pay_period_start).toLocaleDateString()} - {new Date(payroll.pay_period_end).toLocaleDateString()}</div>
@@ -258,13 +258,13 @@ This is an automatically generated payslip.
 
           {/* Employee Information */}
           <Card className="print:shadow-none print:border">
-            <CardHeader className="pb-2 print:pb-1">
-              <CardTitle className="flex items-center gap-2 text-base print:text-sm">
-                <User className="h-4 w-4" />
+            <CardHeader className="print:pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg print:text-base">
+                <User className="h-5 w-5" />
                 Employee Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 print:gap-2 pt-0">
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2">
               <div>
                 <div className="text-sm text-gray-600">Full Name</div>
                 <div className="font-medium">{profile?.full_name}</div>
@@ -298,33 +298,33 @@ This is an automatically generated payslip.
 
           {/* Payment Summary */}
           <Card className="print:shadow-none print:border">
-            <CardHeader className="pb-2 print:pb-1">
-              <CardTitle className="flex items-center gap-2 text-base print:text-sm">
-                <DollarSign className="h-4 w-4" />
+            <CardHeader className="print:pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg print:text-base">
+                <DollarSign className="h-5 w-5" />
                 Payment Summary
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 print:gap-2 mb-3">
-                <div className="text-center p-2 bg-blue-50 rounded print:bg-gray-50">
-                  <div className="text-xs text-gray-600">Total Hours</div>
-                  <div className="text-lg font-bold text-blue-600">{payroll.total_hours}</div>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:gap-2 mb-4">
+                <div className="text-center p-3 bg-blue-50 rounded print:bg-gray-50">
+                  <div className="text-sm text-gray-600">Total Hours</div>
+                  <div className="text-xl font-bold text-blue-600">{payroll.total_hours}</div>
                 </div>
-                <div className="text-center p-2 bg-green-50 rounded print:bg-gray-50">
-                  <div className="text-xs text-gray-600">Hourly Rate</div>
-                  <div className="text-lg font-bold text-green-600">${payroll.hourly_rate.toFixed(2)}</div>
+                <div className="text-center p-3 bg-green-50 rounded print:bg-gray-50">
+                  <div className="text-sm text-gray-600">Hourly Rate</div>
+                  <div className="text-xl font-bold text-green-600">${payroll.hourly_rate.toFixed(2)}</div>
                 </div>
-                <div className="text-center p-2 bg-purple-50 rounded print:bg-gray-50">
-                  <div className="text-xs text-gray-600">Gross Pay</div>
-                  <div className="text-lg font-bold text-purple-600">${payroll.gross_pay.toFixed(2)}</div>
+                <div className="text-center p-3 bg-purple-50 rounded print:bg-gray-50">
+                  <div className="text-sm text-gray-600">Gross Pay</div>
+                  <div className="text-xl font-bold text-purple-600">${payroll.gross_pay.toFixed(2)}</div>
                 </div>
-                <div className="text-center p-2 bg-orange-50 rounded print:bg-gray-50">
-                  <div className="text-xs text-gray-600">Net Pay</div>
-                  <div className="text-lg font-bold text-orange-600">${payroll.net_pay.toFixed(2)}</div>
+                <div className="text-center p-3 bg-orange-50 rounded print:bg-gray-50">
+                  <div className="text-sm text-gray-600">Net Pay</div>
+                  <div className="text-xl font-bold text-orange-600">${payroll.net_pay.toFixed(2)}</div>
                 </div>
               </div>
               
-              <Separator className="my-3" />
+              <Separator className="my-4" />
               
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
@@ -347,13 +347,13 @@ This is an automatically generated payslip.
           {/* Employee Bank Account Information */}
           {bankAccount && (
             <Card className="print:shadow-none print:border">
-              <CardHeader className="pb-2 print:pb-1">
-                <CardTitle className="flex items-center gap-2 text-base print:text-sm">
-                  <Building className="h-4 w-4" />
+              <CardHeader className="print:pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg print:text-base">
+                  <Building className="h-5 w-5" />
                   Employee Bank Account Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 print:gap-2 pt-0">
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2">
                 <div>
                   <div className="text-sm text-gray-600">Bank Name</div>
                   <div className="font-medium">{bankAccount.bank_name}</div>
@@ -385,13 +385,13 @@ This is an automatically generated payslip.
           {/* Payment Bank Account (if different) */}
           {paymentBankAccount && paymentBankAccount.id !== bankAccount?.id && (
             <Card className="print:shadow-none print:border border-green-200">
-              <CardHeader className="pb-2 print:pb-1">
-                <CardTitle className="flex items-center gap-2 text-base print:text-sm text-green-700">
-                  <ArrowRight className="h-4 w-4" />
+              <CardHeader className="print:pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg print:text-base text-green-700">
+                  <ArrowRight className="h-5 w-5" />
                   Payment Bank Account (Used for this payment)
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 print:gap-2 pt-0">
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2">
                 <div>
                   <div className="text-sm text-gray-600">Bank Name</div>
                   <div className="font-medium">{paymentBankAccount.bank_name}</div>
@@ -420,46 +420,15 @@ This is an automatically generated payslip.
             </Card>
           )}
 
-          {/* Status and Footer */}
-          <Card className="print:shadow-none print:border">
-            <CardContent className="pt-4 print:pt-3">
-              <div className="flex justify-between items-center mb-3">
-                <div>
-                  <div className="text-sm text-gray-600">Payment Status</div>
-                  <div className={`text-lg font-bold capitalize ${
-                    payroll.status === 'paid' 
-                      ? 'text-green-600' 
-                      : payroll.status === 'approved'
-                      ? 'text-blue-600'
-                      : 'text-yellow-600'
-                  }`}>
-                    {payroll.status}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-gray-600">Generated On</div>
-                  <div className="font-medium">{new Date(payroll.created_at).toLocaleDateString()}</div>
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="mt-3 text-center text-xs text-gray-500">
-                <p>This is a computer-generated payslip. Please verify all details and contact HR for any discrepancies.</p>
-                <p className="mt-1">Employee copy - retain for your records</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Working Hours Breakdown - Moved to the end */}
+          {/* Working Hours Breakdown */}
           <Card className="print:shadow-none print:border print:page-break-before">
-            <CardHeader className="pb-2 print:pb-1">
-              <CardTitle className="flex items-center gap-2 text-base print:text-sm">
-                <Clock className="h-4 w-4" />
+            <CardHeader className="print:pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg print:text-base">
+                <Clock className="h-5 w-5" />
                 Working Hours Breakdown ({workingHours.length} entries)
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -501,9 +470,9 @@ This is an automatically generated payslip.
 
               {/* Notes Section */}
               {workingHours.some(wh => wh.notes) && (
-                <div className="mt-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Notes:</h4>
-                  <div className="space-y-1">
+                <div className="mt-6">
+                  <h4 className="font-medium text-gray-700 mb-3">Notes:</h4>
+                  <div className="space-y-2">
                     {workingHours.filter(wh => wh.notes).map((wh) => (
                       <div key={wh.id} className="text-sm">
                         <span className="font-medium">{new Date(wh.date).toLocaleDateString()}:</span>
@@ -516,22 +485,33 @@ This is an automatically generated payslip.
             </CardContent>
           </Card>
 
-          {/* Signature Section */}
+          {/* Status and Footer */}
           <Card className="print:shadow-none print:border">
-            <CardContent className="pt-4 print:pt-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:gap-6">
+            <CardContent className="pt-6 print:pt-4">
+              <div className="flex justify-between items-center mb-4">
                 <div>
-                  <div className="text-sm text-gray-600 mb-4">Employee Signature</div>
-                  <div className="border-b border-gray-400 h-12 mb-2"></div>
-                  <div className="text-xs text-gray-500">Signature</div>
-                  <div className="text-xs text-gray-500 mt-2">Date: _______________</div>
+                  <div className="text-sm text-gray-600">Payment Status</div>
+                  <div className={`text-lg font-bold capitalize ${
+                    payroll.status === 'paid' 
+                      ? 'text-green-600' 
+                      : payroll.status === 'approved'
+                      ? 'text-blue-600'
+                      : 'text-yellow-600'
+                  }`}>
+                    {payroll.status}
+                  </div>
                 </div>
-                <div>
-                  <div className="text-sm text-gray-600 mb-4">Employer Signature</div>
-                  <div className="border-b border-gray-400 h-12 mb-2"></div>
-                  <div className="text-xs text-gray-500">Authorized Signature</div>
-                  <div className="text-xs text-gray-500 mt-2">Date: _______________</div>
+                <div className="text-right">
+                  <div className="text-sm text-gray-600">Generated On</div>
+                  <div className="font-medium">{new Date(payroll.created_at).toLocaleDateString()}</div>
                 </div>
+              </div>
+              
+              <Separator />
+              
+              <div className="mt-4 text-center text-xs text-gray-500">
+                <p>This is a computer-generated payslip. Please verify all details and contact HR for any discrepancies.</p>
+                <p className="mt-1">Employee copy - retain for your records</p>
               </div>
             </CardContent>
           </Card>
@@ -566,8 +546,8 @@ This is an automatically generated payslip.
             .text-xl { font-size: 1.1rem !important; }
             .text-lg { font-size: 1rem !important; }
             
+            .space-y-6 > * + * { margin-top: 1rem !important; }
             .space-y-4 > * + * { margin-top: 0.75rem !important; }
-            .space-y-3 > * + * { margin-top: 0.5rem !important; }
             
             .bg-blue-50, .bg-green-50, .bg-purple-50, .bg-orange-50 {
               background-color: #f9f9f9 !important;

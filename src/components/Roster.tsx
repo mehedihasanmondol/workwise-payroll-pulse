@@ -275,7 +275,7 @@ const RosterManagement = () => {
           </div>
 
           {isCalendarView ? (
-            <EnhancedRosterCalendarView rosters={rosters} />
+            <EnhancedRosterCalendarView rosters={rosters} onDelete={handleDeleteRoster} />
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {formData.map((data, index) => (
