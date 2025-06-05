@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Clock, Calendar, DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Clock, Calendar, DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Eye, Search, Timer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { WorkingHour, Profile, Client, Project } from '@/types/database';
 import { EditWorkingHoursDialog } from './EditWorkingHoursDialog';
 import { WorkingHoursActions } from './working-hours/WorkingHoursActions';
+import { ProfileSelector } from './common/ProfileSelector';
 
 const WorkingHours = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,17 +32,15 @@ const WorkingHours = () => {
     profile_id: "",
     client_id: "",
     project_id: "",
-    date: new Date().toISOString().split('T')[0], // Auto-fill with today's date
+    date: new Date().toISOString().split('T')[0],
     start_time: "",
     end_time: "",
     sign_in_time: "",
     sign_out_time: "",
     hourly_rate: 0,
     notes: "",
-    status: "pending"
+    status: "pending" as const
   });
-
-  const [bulkEditData, setBulkEditData] = useState<WorkingHour[]>([]);
 
   useEffect(() => {
     fetchWorkingHours();
@@ -49,7 +49,6 @@ const WorkingHours = () => {
     fetchProjects();
   }, []);
 
-  // Auto-fill today's date when dialog opens
   useEffect(() => {
     if (isDialogOpen && !editingWorkingHour) {
       setFormData(prev => ({
@@ -164,17 +163,19 @@ const WorkingHours = () => {
       const overtimeHours = Math.max(0, actualHours - totalHours);
       const payableAmount = (actualHours || totalHours) * formData.hourly_rate;
       
+      const workingHourData = {
+        ...formData,
+        total_hours: totalHours,
+        actual_hours: actualHours || null,
+        overtime_hours: overtimeHours,
+        payable_amount: payableAmount,
+        sign_in_time: formData.sign_in_time || null,
+        sign_out_time: formData.sign_out_time || null
+      };
+
       const { error } = await supabase
         .from('working_hours')
-        .insert([{
-          ...formData,
-          total_hours: totalHours,
-          actual_hours: actualHours || null,
-          overtime_hours: overtimeHours,
-          payable_amount: payableAmount,
-          sign_in_time: formData.sign_in_time || null,
-          sign_out_time: formData.sign_out_time || null
-        }]);
+        .insert([workingHourData]);
 
       if (error) throw error;
       toast({ title: "Success", description: "Working hours logged successfully" });
@@ -184,7 +185,7 @@ const WorkingHours = () => {
         profile_id: "",
         client_id: "",
         project_id: "",
-        date: new Date().toISOString().split('T')[0], // Reset to today's date
+        date: new Date().toISOString().split('T')[0],
         start_time: "",
         end_time: "",
         sign_in_time: "",
@@ -234,38 +235,37 @@ const WorkingHours = () => {
     setIsEditDialogOpen(true);
   };
 
+  const handleView = (workingHour: WorkingHour) => {
+    setEditingWorkingHour(workingHour);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this working hour record?")) {
+      try {
+        const { error } = await supabase
+          .from('working_hours')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        toast({ title: "Success", description: "Working hour record deleted successfully" });
+        fetchWorkingHours();
+      } catch (error) {
+        console.error('Error deleting working hour:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete working hour record",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
   const filteredWorkingHours = workingHours.filter(wh =>
     (wh.profiles?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (wh.projects?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const handleBulkUpdate = async () => {
-    setLoading(true);
-    try {
-      const updates = bulkEditData.map(data => ({
-        ...data,
-        status: data.status as 'pending' | 'approved' | 'rejected' | 'paid'
-      }));
-
-      const { error } = await supabase
-        .from('working_hours')
-        .upsert(updates);
-
-      if (error) throw error;
-      toast({ title: "Success", description: "Working hours updated successfully" });
-      setBulkEditData([]);
-      fetchWorkingHours();
-    } catch (error) {
-      console.error('Error updating working hours:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update working hours",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading && workingHours.length === 0) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
@@ -301,7 +301,7 @@ const WorkingHours = () => {
                   setFormData({ 
                     ...formData, 
                     profile_id: profileId,
-                    hourly_rate: profile?.hourly_rate || 0 // Auto-suggest hourly rate
+                    hourly_rate: profile?.hourly_rate || 0
                   });
                 }}
                 label="Select Profile"
@@ -577,36 +577,13 @@ const WorkingHours = () => {
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleEdit(wh)}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        {wh.status === "pending" && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => updateStatus(wh.id, "approved")}
-                              className="text-green-600 hover:text-green-700"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => updateStatus(wh.id, "rejected")}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                      <WorkingHoursActions
+                        workingHour={wh}
+                        onApprove={(id) => updateStatus(id, "approved")}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onView={handleView}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -627,12 +604,6 @@ const WorkingHours = () => {
         profiles={profiles}
         clients={clients}
         projects={projects}
-      />
-
-      <WorkingHoursActions
-        bulkEditData={bulkEditData}
-        setBulkEditData={setBulkEditData}
-        handleBulkUpdate={handleBulkUpdate}
       />
     </div>
   );
