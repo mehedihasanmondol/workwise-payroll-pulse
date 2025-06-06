@@ -7,51 +7,37 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Clock, DollarSign, Timer } from "lucide-react";
+import { Plus, Search, Clock, CheckCircle, XCircle, DollarSign, Timer, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { WorkingHour, Profile, Client, Project } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
 import { ProfileSelector } from "@/components/common/ProfileSelector";
 import { EditWorkingHoursDialog } from "@/components/EditWorkingHoursDialog";
-import { WorkingHoursFilter, FilterState } from "@/components/working-hours/WorkingHoursFilter";
-import { WorkingHoursActions } from "@/components/working-hours/WorkingHoursActions";
-import { WorkingHoursViewDialog } from "@/components/working-hours/WorkingHoursViewDialog";
 
 export const WorkingHoursComponent = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
-  const [filteredWorkingHours, setFilteredWorkingHours] = useState<WorkingHour[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingWorkingHour, setEditingWorkingHour] = useState<WorkingHour | null>(null);
-  const [viewingWorkingHour, setViewingWorkingHour] = useState<WorkingHour | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [filters, setFilters] = useState<FilterState>({
-    profileId: "",
-    clientId: "",
-    projectId: "",
-    status: "",
-    startDate: "",
-    endDate: ""
-  });
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     profile_id: "",
     client_id: "",
     project_id: "",
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split('T')[0], // Auto-fill with today's date
     start_time: "",
     end_time: "",
     sign_in_time: "",
     sign_out_time: "",
     hourly_rate: 0,
     notes: "",
-    status: "pending" as const
+    status: "pending"
   });
 
   useEffect(() => {
@@ -61,6 +47,7 @@ export const WorkingHoursComponent = () => {
     fetchProjects();
   }, []);
 
+  // Auto-fill today's date when dialog opens
   useEffect(() => {
     if (isDialogOpen && !editingWorkingHour) {
       setFormData(prev => ({
@@ -69,10 +56,6 @@ export const WorkingHoursComponent = () => {
       }));
     }
   }, [isDialogOpen, editingWorkingHour]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [workingHours, filters, searchTerm]);
 
   const fetchWorkingHours = async () => {
     try {
@@ -153,41 +136,6 @@ export const WorkingHoursComponent = () => {
     }
   };
 
-  const applyFilters = () => {
-    let filtered = workingHours;
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(wh =>
-        (wh.profiles?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (wh.projects?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (wh.clients?.company || '').toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Apply other filters
-    if (filters.profileId) {
-      filtered = filtered.filter(wh => wh.profile_id === filters.profileId);
-    }
-    if (filters.clientId) {
-      filtered = filtered.filter(wh => wh.client_id === filters.clientId);
-    }
-    if (filters.projectId) {
-      filtered = filtered.filter(wh => wh.project_id === filters.projectId);
-    }
-    if (filters.status) {
-      filtered = filtered.filter(wh => wh.status === filters.status);
-    }
-    if (filters.startDate) {
-      filtered = filtered.filter(wh => wh.date >= filters.startDate);
-    }
-    if (filters.endDate) {
-      filtered = filtered.filter(wh => wh.date <= filters.endDate);
-    }
-
-    setFilteredWorkingHours(filtered);
-  };
-
   const calculateTotalHours = (startTime: string, endTime: string) => {
     if (!startTime || !endTime) return 0;
     
@@ -216,7 +164,7 @@ export const WorkingHoursComponent = () => {
       
       const { error } = await supabase
         .from('working_hours')
-        .insert({
+        .insert([{
           ...formData,
           total_hours: totalHours,
           actual_hours: actualHours || null,
@@ -224,7 +172,7 @@ export const WorkingHoursComponent = () => {
           payable_amount: payableAmount,
           sign_in_time: formData.sign_in_time || null,
           sign_out_time: formData.sign_out_time || null
-        });
+        }]);
 
       if (error) throw error;
       toast({ title: "Success", description: "Working hours logged successfully" });
@@ -234,7 +182,7 @@ export const WorkingHoursComponent = () => {
         profile_id: "",
         client_id: "",
         project_id: "",
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toISOString().split('T')[0], // Reset to today's date
         start_time: "",
         end_time: "",
         sign_in_time: "",
@@ -284,35 +232,10 @@ export const WorkingHoursComponent = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleView = (workingHour: WorkingHour) => {
-    setViewingWorkingHour(workingHour);
-    setIsViewDialogOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this working hours record?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('working_hours')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      toast({ 
-        title: "Success", 
-        description: "Working hours deleted successfully" 
-      });
-      fetchWorkingHours();
-    } catch (error) {
-      console.error('Error deleting working hours:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete working hours",
-        variant: "destructive"
-      });
-    }
-  };
+  const filteredWorkingHours = workingHours.filter(wh =>
+    (wh.profiles?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (wh.projects?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading && workingHours.length === 0) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
@@ -348,7 +271,7 @@ export const WorkingHoursComponent = () => {
                   setFormData({ 
                     ...formData, 
                     profile_id: profileId,
-                    hourly_rate: profile?.hourly_rate || 0
+                    hourly_rate: profile?.hourly_rate || 0 // Auto-suggest hourly rate
                   });
                 }}
                 label="Select Profile"
@@ -537,14 +460,6 @@ export const WorkingHoursComponent = () => {
         </Card>
       </div>
 
-      {/* Filters */}
-      <WorkingHoursFilter
-        profiles={profiles}
-        clients={clients}
-        projects={projects}
-        onFilterChange={setFilters}
-      />
-
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -632,13 +547,36 @@ export const WorkingHoursComponent = () => {
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
-                      <WorkingHoursActions
-                        workingHour={wh}
-                        onApprove={(id) => updateStatus(id, "approved")}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        onView={handleView}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleEdit(wh)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {wh.status === "pending" && (
+                          <>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => updateStatus(wh.id, "approved")}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => updateStatus(wh.id, "rejected")}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -659,15 +597,6 @@ export const WorkingHoursComponent = () => {
         profiles={profiles}
         clients={clients}
         projects={projects}
-      />
-
-      <WorkingHoursViewDialog
-        workingHour={viewingWorkingHour}
-        isOpen={isViewDialogOpen}
-        onClose={() => {
-          setIsViewDialogOpen(false);
-          setViewingWorkingHour(null);
-        }}
       />
     </div>
   );
