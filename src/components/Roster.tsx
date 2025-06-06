@@ -195,7 +195,7 @@ export const RosterComponent = () => {
       // Create roster with first profile as primary
       const { data: roster, error: rosterError } = await supabase
         .from('rosters')
-        .insert([{
+        .insert({
           profile_id: formData.profile_ids[0], // Use first selected profile as primary
           client_id: formData.client_id,
           project_id: formData.project_id,
@@ -205,11 +205,11 @@ export const RosterComponent = () => {
           end_time: formData.end_time,
           total_hours: totalHours,
           notes: formData.notes,
-          status: formData.status,
+          status: formData.status as 'pending' | 'confirmed' | 'cancelled',
           name: finalName,
           expected_profiles: formData.expected_profiles,
           per_hour_rate: formData.per_hour_rate
-        }])
+        })
         .select()
         .single();
 

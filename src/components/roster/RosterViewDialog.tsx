@@ -2,7 +2,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, Users, DollarSign, Building, FolderOpen } from "lucide-react";
+import { Calendar, Clock, Users, DollarSign, Building, FolderOpen, User, Mail, Phone } from "lucide-react";
 import { Roster as RosterType } from "@/types/database";
 import { format, parseISO } from "date-fns";
 
@@ -41,7 +41,7 @@ export const RosterViewDialog = ({ roster, isOpen, onClose }: RosterViewDialogPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-blue-600" />
@@ -142,18 +142,52 @@ export const RosterViewDialog = ({ roster, isOpen, onClose }: RosterViewDialogPr
                 />
               </div>
 
-              <div className="space-y-2">
+              {/* Employee Details Section */}
+              <div className="space-y-3">
                 <div className="font-medium text-gray-700 text-sm">Assigned Team Members:</div>
                 {roster.roster_profiles && roster.roster_profiles.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {roster.roster_profiles.map((rp) => (
-                      <Badge key={rp.id} variant="secondary" className="text-xs">
-                        {rp.profiles?.full_name}
-                      </Badge>
+                      <div key={rp.id} className="p-4 bg-gray-50 rounded-lg border">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium text-gray-900">
+                              {rp.profiles?.full_name || 'Unknown Employee'}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {rp.profiles?.role || 'N/A'}
+                            </Badge>
+                          </div>
+                          
+                          {rp.profiles?.email && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Mail className="h-3 w-3" />
+                              <span>{rp.profiles.email}</span>
+                            </div>
+                          )}
+                          
+                          {rp.profiles?.phone && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Phone className="h-3 w-3" />
+                              <span>{rp.profiles.phone}</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>Employment: {rp.profiles?.employment_type || 'N/A'}</span>
+                            {rp.profiles?.hourly_rate && (
+                              <span>Rate: ${rp.profiles.hourly_rate}/hr</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500 italic">No team members assigned yet</div>
+                  <div className="text-sm text-gray-500 italic p-4 bg-gray-50 rounded-lg">
+                    No team members assigned yet
+                  </div>
                 )}
               </div>
             </div>

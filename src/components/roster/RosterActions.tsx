@@ -11,7 +11,7 @@ interface RosterActionsProps {
 }
 
 export const RosterActions = ({ roster, onEdit, onDelete, onView }: RosterActionsProps) => {
-  const canEditDelete = roster.status !== 'paid';
+  const canEditDelete = roster.status !== 'cancelled';
 
   const items = [
     {
@@ -32,7 +32,7 @@ export const RosterActions = ({ roster, onEdit, onDelete, onView }: RosterAction
         label: "Delete",
         onClick: () => onDelete(roster.id),
         icon: <Trash2 className="h-4 w-4" />,
-        variant: "destructive" as const
+        destructive: true
       }
     );
   }

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,19 +34,38 @@ export const RosterEditDialog = ({
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
-    name: roster?.name || '',
-    profile_ids: roster?.roster_profiles?.map(rp => rp.profile_id) || [],
-    client_id: roster?.client_id || '',
-    project_id: roster?.project_id || '',
-    date: roster?.date || '',
-    end_date: roster?.end_date || '',
-    start_time: roster?.start_time || '',
-    end_time: roster?.end_time || '',
-    notes: roster?.notes || '',
-    status: roster?.status || 'pending',
-    expected_profiles: roster?.expected_profiles || 1,
-    per_hour_rate: roster?.per_hour_rate || 0
+    name: '',
+    profile_ids: [] as string[],
+    client_id: '',
+    project_id: '',
+    date: '',
+    end_date: '',
+    start_time: '',
+    end_time: '',
+    notes: '',
+    status: 'pending' as 'pending' | 'confirmed' | 'cancelled',
+    expected_profiles: 1,
+    per_hour_rate: 0
   });
+
+  useEffect(() => {
+    if (roster && isOpen) {
+      setFormData({
+        name: roster.name || '',
+        profile_ids: roster.roster_profiles?.map(rp => rp.profile_id) || [],
+        client_id: roster.client_id || '',
+        project_id: roster.project_id || '',
+        date: roster.date || '',
+        end_date: roster.end_date || '',
+        start_time: roster.start_time || '',
+        end_time: roster.end_time || '',
+        notes: roster.notes || '',
+        status: roster.status || 'pending',
+        expected_profiles: roster.expected_profiles || 1,
+        per_hour_rate: roster.per_hour_rate || 0
+      });
+    }
+  }, [roster, isOpen]);
 
   const calculateTotalHours = (startTime: string, endTime: string) => {
     if (!startTime || !endTime) return 0;
@@ -81,7 +100,7 @@ export const RosterEditDialog = ({
           end_time: formData.end_time,
           total_hours: totalHours,
           notes: formData.notes,
-          status: formData.status as 'pending' | 'confirmed' | 'cancelled',
+          status: formData.status,
           expected_profiles: formData.expected_profiles,
           per_hour_rate: formData.per_hour_rate
         })
@@ -256,7 +275,7 @@ export const RosterEditDialog = ({
 
           <div>
             <Label htmlFor="status">Status</Label>
-            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+            <Select value={formData.status} onValueChange={(value: 'pending' | 'confirmed' | 'cancelled') => setFormData({ ...formData, status: value })}>
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
