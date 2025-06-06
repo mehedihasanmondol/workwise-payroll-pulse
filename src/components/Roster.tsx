@@ -14,6 +14,9 @@ import { useToast } from "@/hooks/use-toast";
 import { MultipleProfileSelector } from "@/components/common/MultipleProfileSelector";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EnhancedRosterCalendarView } from "@/components/roster/EnhancedRosterCalendarView";
+import { RosterWeeklyFilter } from "@/components/roster/RosterWeeklyFilter";
+import { RosterActions } from "@/components/roster/RosterActions";
+import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
 
 export const RosterComponent = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,7 +26,8 @@ export const RosterComponent = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("calendar"); // Changed default to calendar
+  const [activeTab, setActiveTab] = useState("calendar");
+  const [currentWeek, setCurrentWeek] = useState(new Date());
   const { toast } = useToast();
 
   const generateDefaultRosterName = () => {
@@ -296,6 +300,21 @@ export const RosterComponent = () => {
     }
   };
 
+  const handleEditRoster = (roster: RosterType) => {
+    toast({
+      title: "Edit Roster",
+      description: "Edit functionality will be implemented soon",
+    });
+  };
+
+  const handleViewRoster = (roster: RosterType) => {
+    toast({
+      title: "View Details",
+      description: "View details functionality will be implemented soon",
+    });
+  };
+
+  // Filter rosters based on search term
   const filteredRosters = rosters.filter(roster =>
     (roster.roster_profiles?.some(rp => 
       rp.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -303,6 +322,23 @@ export const RosterComponent = () => {
     (roster.projects?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (roster.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Filter rosters for current week (for list view)
+  const getWeekFilteredRosters = () => {
+    const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+    
+    return filteredRosters.filter(roster => {
+      const rosterStartDate = parseISO(roster.date);
+      const rosterEndDate = roster.end_date ? parseISO(roster.end_date) : rosterStartDate;
+      
+      return isWithinInterval(rosterStartDate, { start: weekStart, end: weekEnd }) ||
+             isWithinInterval(rosterEndDate, { start: weekStart, end: weekEnd }) ||
+             (rosterStartDate <= weekStart && rosterEndDate >= weekEnd);
+    });
+  };
+
+  const weekFilteredRosters = getWeekFilteredRosters();
 
   // Updated calendar view helper function
   const getCalendarRosters = () => {
@@ -556,10 +592,20 @@ export const RosterComponent = () => {
             </TabsList>
             
             <TabsContent value="calendar" className="mt-6">
-              <EnhancedRosterCalendarView rosters={calendarRosters} />
+              <EnhancedRosterCalendarView 
+                rosters={calendarRosters} 
+                onEdit={handleEditRoster}
+                onDelete={deleteRoster}
+                onView={handleViewRoster}
+              />
             </TabsContent>
             
             <TabsContent value="list" className="mt-4">
+              <RosterWeeklyFilter 
+                currentWeek={currentWeek}
+                onWeekChange={setCurrentWeek}
+              />
+              
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -574,7 +620,7 @@ export const RosterComponent = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRosters.map((roster) => (
+                    {weekFilteredRosters.map((roster) => (
                       <tr key={roster.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4">
                           <div className="font-medium text-gray-900">{roster.name || 'Unnamed Roster'}</div>
@@ -618,36 +664,12 @@ export const RosterComponent = () => {
                           </Badge>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            {roster.status === "pending" && roster.is_editable && (
-                              <>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => updateStatus(roster.id, "confirmed")}
-                                  className="text-green-600 hover:text-green-700"
-                                >
-                                  Confirm
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => updateStatus(roster.id, "cancelled")}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  Cancel
-                                </Button>
-                              </>
-                            )}
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => deleteRoster(roster.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              Delete
-                            </Button>
-                          </div>
+                          <RosterActions
+                            roster={roster}
+                            onEdit={handleEditRoster}
+                            onDelete={deleteRoster}
+                            onView={handleViewRoster}
+                          />
                         </td>
                       </tr>
                     ))}
