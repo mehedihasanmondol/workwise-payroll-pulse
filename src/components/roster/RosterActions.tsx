@@ -32,7 +32,7 @@ export const RosterActions = ({ roster, onEdit, onDelete, onView }: RosterAction
         label: "Delete",
         onClick: () => onDelete(roster.id),
         icon: <Trash2 className="h-4 w-4" />,
-        destructive: true
+        variant: "destructive" as const
       }
     );
   }

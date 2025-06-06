@@ -2,19 +2,14 @@
 import { Button } from "@/components/ui/button";
 import { ActionDropdown } from "@/components/ui/action-dropdown";
 import { Check, Edit, Trash2, Eye } from "lucide-react";
-
-interface WorkingHour {
-  id: string;
-  status: string;
-  // Add other properties as needed
-}
+import { WorkingHour } from "@/types/database";
 
 interface WorkingHoursActionsProps {
   workingHour: WorkingHour;
   onApprove: (id: string) => void;
-  onEdit: (id: string) => void;
+  onEdit: (workingHour: WorkingHour) => void;
   onDelete: (id: string) => void;
-  onView: (id: string) => void;
+  onView: (workingHour: WorkingHour) => void;
 }
 
 export const WorkingHoursActions = ({
@@ -24,6 +19,8 @@ export const WorkingHoursActions = ({
   onDelete,
   onView
 }: WorkingHoursActionsProps) => {
+  const canEditDelete = workingHour.status !== 'paid';
+
   if (workingHour.status === 'pending') {
     return (
       <div className="flex gap-1">
@@ -39,18 +36,18 @@ export const WorkingHoursActions = ({
           items={[
             {
               label: "Edit",
-              onClick: () => onEdit(workingHour.id),
+              onClick: () => onEdit(workingHour),
               icon: <Edit className="h-4 w-4" />
             },
             {
               label: "Delete",
               onClick: () => onDelete(workingHour.id),
               icon: <Trash2 className="h-4 w-4" />,
-              variant: "destructive"
+              variant: "destructive" as const
             },
             {
               label: "View Details",
-              onClick: () => onView(workingHour.id),
+              onClick: () => onView(workingHour),
               icon: <Eye className="h-4 w-4" />
             }
           ]}
@@ -59,15 +56,29 @@ export const WorkingHoursActions = ({
     );
   }
 
-  return (
-    <ActionDropdown
-      items={[
-        {
-          label: "View Details",
-          onClick: () => onView(workingHour.id),
-          icon: <Eye className="h-4 w-4" />
-        }
-      ]}
-    />
-  );
+  const items = [
+    {
+      label: "View Details",
+      onClick: () => onView(workingHour),
+      icon: <Eye className="h-4 w-4" />
+    }
+  ];
+
+  if (canEditDelete) {
+    items.unshift(
+      {
+        label: "Edit",
+        onClick: () => onEdit(workingHour),
+        icon: <Edit className="h-4 w-4" />
+      },
+      {
+        label: "Delete",
+        onClick: () => onDelete(workingHour.id),
+        icon: <Trash2 className="h-4 w-4" />,
+        variant: "destructive" as const
+      }
+    );
+  }
+
+  return <ActionDropdown items={items} />;
 };
