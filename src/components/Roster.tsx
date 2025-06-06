@@ -17,6 +17,8 @@ import { EnhancedRosterCalendarView } from "@/components/roster/EnhancedRosterCa
 import { RosterWeeklyFilter } from "@/components/roster/RosterWeeklyFilter";
 import { RosterActions } from "@/components/roster/RosterActions";
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
+import { RosterEditDialog } from "@/components/roster/RosterEditDialog";
+import { RosterViewDialog } from "@/components/roster/RosterViewDialog";
 
 export const RosterComponent = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +62,11 @@ export const RosterComponent = () => {
     expected_profiles: 1,
     per_hour_rate: 0
   });
+
+  const [editingRoster, setEditingRoster] = useState<RosterType | null>(null);
+  const [viewingRoster, setViewingRoster] = useState<RosterType | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchRosters();
@@ -301,17 +308,18 @@ export const RosterComponent = () => {
   };
 
   const handleEditRoster = (roster: RosterType) => {
-    toast({
-      title: "Edit Roster",
-      description: "Edit functionality will be implemented soon",
-    });
+    setEditingRoster(roster);
+    setIsEditDialogOpen(true);
   };
 
   const handleViewRoster = (roster: RosterType) => {
-    toast({
-      title: "View Details",
-      description: "View details functionality will be implemented soon",
-    });
+    setViewingRoster(roster);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleEditSave = () => {
+    fetchRosters();
+    setEditingRoster(null);
   };
 
   // Filter rosters based on search term
@@ -680,6 +688,28 @@ export const RosterComponent = () => {
           </Tabs>
         </CardContent>
       </Card>
+      
+      <RosterEditDialog
+        roster={editingRoster}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setEditingRoster(null);
+        }}
+        onSave={handleEditSave}
+        profiles={profiles}
+        clients={clients}
+        projects={projects}
+      />
+
+      <RosterViewDialog
+        roster={viewingRoster}
+        isOpen={isViewDialogOpen}
+        onClose={() => {
+          setIsViewDialogOpen(false);
+          setViewingRoster(null);
+        }}
+      />
     </div>
   );
 };
