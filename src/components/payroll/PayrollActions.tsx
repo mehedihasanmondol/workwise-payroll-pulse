@@ -1,22 +1,22 @@
 
 import { ActionDropdown, ActionItem } from "@/components/ui/action-dropdown";
 import { Edit, Trash2, Eye } from "lucide-react";
-import { Roster as RosterType } from "@/types/database";
+import type { Payroll as PayrollType } from "@/types/database";
 
-interface RosterActionsProps {
-  roster: RosterType;
-  onEdit: (roster: RosterType) => void;
+interface PayrollActionsProps {
+  payroll: PayrollType;
+  onEdit: (payroll: PayrollType) => void;
   onDelete: (id: string) => void;
-  onView: (roster: RosterType) => void;
+  onView: (payroll: PayrollType) => void;
 }
 
-export const RosterActions = ({ roster, onEdit, onDelete, onView }: RosterActionsProps) => {
-  const canEditDelete = roster.status !== 'cancelled';
+export const PayrollActions = ({ payroll, onEdit, onDelete, onView }: PayrollActionsProps) => {
+  const canEditDelete = payroll.status !== 'paid';
 
   const items: ActionItem[] = [
     {
       label: "View Details",
-      onClick: () => onView(roster),
+      onClick: () => onView(payroll),
       icon: <Eye className="h-4 w-4" />
     }
   ];
@@ -25,12 +25,12 @@ export const RosterActions = ({ roster, onEdit, onDelete, onView }: RosterAction
     items.unshift(
       {
         label: "Edit",
-        onClick: () => onEdit(roster),
+        onClick: () => onEdit(payroll),
         icon: <Edit className="h-4 w-4" />
       },
       {
         label: "Delete",
-        onClick: () => onDelete(roster.id),
+        onClick: () => onDelete(payroll.id),
         icon: <Trash2 className="h-4 w-4" />,
         destructive: true
       }
