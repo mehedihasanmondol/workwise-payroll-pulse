@@ -15,8 +15,8 @@ export const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("m@g.com");
+  const [password, setPassword] = useState("0000");
   const [fullName, setFullName] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const { toast } = useToast();
